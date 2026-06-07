@@ -1,0 +1,41 @@
+#parago-guardian-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: system-ui, Arial, sans-serif;
+}
+#parago-guardian-overlay .parago-go-panel {
+  background: #fff;
+  color: #111;
+  max-width: 520px;
+  width: 90%;
+  max-height: 80vh;
+  overflow: auto;
+  padding: 28px;
+  border-radius: 12px;
+  font-size: 18px;
+  line-height: 1.5;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+}
+#parago-guardian-overlay .parago-go-title { font-size: 1.6rem; margin: 0 0 12px; }
+#parago-guardian-overlay .parago-go-who { font-weight: 700; margin: 0 0 8px; }
+#parago-guardian-overlay .parago-go-items { margin: 12px 0; padding-left: 20px; }
+#parago-guardian-overlay .parago-go-items li { margin-bottom: 4px; }
+#parago-guardian-overlay .parago-go-total { font-weight: 700; font-size: 1.2rem; }
+#parago-guardian-overlay .parago-go-status { font-weight: 700; min-height: 1.5rem; }
+#parago-guardian-overlay[data-status="approved"] .parago-go-status { color: #0a7d27; }
+#parago-guardian-overlay[data-status="rejected"] .parago-go-status { color: #b00020; }
+#parago-guardian-overlay .parago-go-cancel {
+  margin-top: 16px;
+  font-size: 1.1rem;
+  padding: 10px 16px;
+  border: 0;
+  border-radius: 6px;
+  background: #555;
+  color: #fff;
+  cursor: pointer;
+}

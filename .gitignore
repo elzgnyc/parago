@@ -1,0 +1,22 @@
+# dependencies / build output
+node_modules/
+dist/
+
+# tooling
+.playwright-mcp/
+
+# local, machine-, or project-specific config — keep your ref/secrets out of the repo
+src/config.js
+.env
+.env.*
+*.local
+
+# Supabase CLI link state (contains your project ref, org id, pooler URL)
+supabase/.temp/
+
+# design docs — kept local, not published
+docs/
+
+# OS cruft
+.DS_Store
+Thumbs.db

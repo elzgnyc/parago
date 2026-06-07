@@ -1,0 +1,72 @@
+/* Dim the card's content but NOT the warning badge.
+   Applying opacity/filter to an element creates a group/compositing context that fades
+   EVERY descendant of that element. The badge is therefore kept a DIRECT CHILD of the
+   card and exempted here, so it never sits under a dimmed wrapper and stays crisp. (Its
+   absolute offsets are set inline by applyCard to overlay the product image's corner.) */
+.parago-greyed > *:not(.parago-badge) {
+  opacity: 0.5;
+  filter: grayscale(70%);
+  transition: opacity 0.15s ease, filter 0.15s ease;
+}
+/* Hover-reveal: when enabled (class on <html>), hovering or focusing a greyed card
+   restores its content to normal so the user can inspect it without disabling the filter. */
+.parago-hover-on .parago-greyed:hover > *:not(.parago-badge),
+.parago-hover-on .parago-greyed:focus-within > *:not(.parago-badge) {
+  opacity: 1;
+  filter: none;
+}
+/* The card is the badge's positioning context (the badge is absolute; applyCard sets its
+   top/left inline to the image corner, falling back to the CSS 8px/8px below). */
+.parago-greyed { position: relative; }
+/* Styled like Amazon's "Overall Pick" badge: dark rounded pill overlaid on the image,
+   top-left, with a trailing circled-i info mark. top/left here are the FALLBACK (card
+   corner) used when no product image is found; applyCard overrides them inline to sit on
+   the image. */
+.parago-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  background: #232f3e;
+  color: #ffffff;
+  font-family: "Amazon Ember", Arial, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1;
+  padding: 5px 9px;
+  border-radius: 4px;
+}
+.parago-badge-icon {
+  margin-left: 5px;
+  flex: 0 0 auto;
+  opacity: 0.9;
+}
+/* Explainer popover (like Amazon's "Overall Pick" tooltip): shown on hover/focus,
+   white card listing why the item was flagged. */
+.parago-pop {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 3;
+  width: 240px;
+  background: #ffffff;
+  color: #111111;
+  font-size: 13px;
+  font-weight: 400;
+  text-align: left;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid #dddddd;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+}
+.parago-badge:hover .parago-pop,
+.parago-badge:focus .parago-pop,
+.parago-badge:focus-within .parago-pop {
+  display: block;
+}
+.parago-pop-title { font-weight: 700; margin-bottom: 6px; }
+.parago-pop ul { margin: 0; padding-left: 18px; }
+.parago-pop li { margin-bottom: 3px; }

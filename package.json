@@ -1,0 +1,20 @@
+{
+  "name": "parago",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Parago — makes Amazon safer for older shoppers (quality filter).",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "build": "node esbuild.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.0",
+    "jsdom": "^25.0.0",
+    "vitest": "^2.1.0"
+  },
+  "dependencies": {
+    "supabase": "^2.105.0"
+  }
+}
