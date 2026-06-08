@@ -52,8 +52,12 @@ Deno.serve(async (req) => {
     .single();
   if (error) return json({ error: 'insert_failed', detail: error.message }, 500);
 
-  const fnBase = (Deno.env.get('FN_BASE') ?? `${Deno.env.get('SUPABASE_URL')}/functions/v1`).replace(/\/$/, '');
-  const link = `${fnBase}/decision?token=${token}`;
+  // The guardian's approval link points at the static page (GitHub Pages), which
+  // renders the purchase and calls the decision function. Supabase can't serve the
+  // HTML itself (text/html is rewritten to text/plain on the default domain), so the
+  // page is hosted off-platform. Override via APPROVE_URL if the host changes.
+  const approveBase = (Deno.env.get('APPROVE_URL') ?? 'https://nhuvtran.github.io/parago/approve.html').replace(/\/$/, '');
+  const link = `${approveBase}?token=${token}`;
   const payload = buildBrevoPayload({
     senderEmail: Deno.env.get('BREVO_SENDER_EMAIL')!,
     senderName: 'Parago',

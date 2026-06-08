@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Parago — Approve purchase</title>
+<style>
+  body{font-family:system-ui,sans-serif;max-width:34rem;margin:3rem auto;padding:0 1rem;color:#222}
+  button{font-size:1.1rem;padding:.7rem 1.4rem;margin:.4rem .4rem 0 0;border-radius:8px;border:0;cursor:pointer}
+  button[disabled]{opacity:.5;cursor:default}
+  .ok{background:#1f8a4c;color:#fff}.no{background:#b23b3b;color:#fff}
+  ul.items{list-style:none;padding:0;margin:0}
+  ul.items li{display:flex;gap:.75rem;align-items:flex-start;padding:.6rem 0;border-top:1px solid #eee}
+  ul.items li:first-child{border-top:0}
+  .thumb{width:64px;height:64px;object-fit:contain;flex:0 0 auto;border-radius:6px;background:#f6f6f6}
+  .it-body{min-width:0;flex:1 1 auto}.it-title{font-weight:600}.it-title a{color:inherit}
+  .it-meta{color:#888;font-size:.85rem;margin-top:.15rem}
+  .muted{color:#888}.err{color:#b23b3b}
+</style>
+</head>
+<body>
+<div id="app" class="muted">Loading…</div>
+<script>
+  // The decision Edge Function (JSON API). Public, non-secret — same base the
+  // extension uses. GET ?token returns the purchase; POST {token,verdict} records it.
+  var FN_BASE = 'https://nerwudjzrexovqccxfuk.functions.supabase.co';
+  var DECISION_URL = FN_BASE + '/decision';
+  var app = document.getElementById('app');
+  var token = new URLSearchParams(location.search).get('token') || '';
+
+  function clear(el) { while (el.firstChild) el.removeChild(el.firstChild); }
+  function elt(tag, opts) {
+    var e = document.createElement(tag); opts = opts || {};
+    if (opts.text != null) e.textContent = opts.text;
+    if (opts.cls) e.className = opts.cls;
+    return e;
+  }
+  function httpUrl(u) { return (typeof u === 'string' && /^https?:\/\//i.test(u)) ? u : null; }
+  function money(n) { return (typeof n === 'number' && isFinite(n)) ? n.toFixed(2) : '—'; }
+
+  // Mirror of the server/email star rendering. rating 0..5; reviewCount optional.
+  function stars(rating, reviewCount) {
+    var cr = Math.max(0, Math.min(5, rating));
+    var r2 = Math.round(cr * 2) / 2, full = Math.floor(r2), half = (r2 - full) === 0.5;
+    var empty = 5 - full - (half ? 1 : 0);
+    var s = '★'.repeat(full) + (half ? '½' : '') + '☆'.repeat(empty);
+    var count = (typeof reviewCount === 'number' && isFinite(reviewCount))
+      ? ' · ' + Math.round(reviewCount).toLocaleString() + ' ratings' : '';
+    return s + ' ' + cr.toFixed(1) + count;
+  }
+
+  function message(title, sub) {
+    clear(app); app.className = '';
+    app.appendChild(elt('h1', { text: title }));
+    if (sub) app.appendChild(elt('p', { cls: 'muted', text: sub }));
+  }
+
+  var REASONS = {
+    not_found: 'This link is not valid.',
+    invalid: 'This link is not valid.',
+    used: 'This request was already decided.',
+    decided: 'This request was already decided.',
+    expired: 'This link has expired.',
+  };
+
+  // Build one product row with DOM nodes (no innerHTML) so a hostile title/url can't inject markup.
+  function itemRow(it) {
+    var li = elt('li');
+    var img = httpUrl(it && it.image);
+    if (img) { var im = elt('img', { cls: 'thumb' }); im.src = img; im.alt = ''; li.appendChild(im); }
+    var bodyEl = elt('div', { cls: 'it-body' });
+
+    var titleEl = elt('div', { cls: 'it-title' });
+    var titleText = (it && it.title) ? String(it.title) : 'Item';
+    var url = httpUrl(it && it.url);
+    if (url) {
+      var a = elt('a', { text: titleText }); a.href = url; a.target = '_blank'; a.rel = 'noopener';
+      titleEl.appendChild(a);
+    } else {
+      titleEl.appendChild(document.createTextNode(titleText));
+    }
+    if (typeof it.price === 'number') titleEl.appendChild(document.createTextNode(' · $' + money(it.price)));
+    if (isFinite(Number(it.qty)) && Number(it.qty) > 1) titleEl.appendChild(document.createTextNode(' × ' + Math.round(Number(it.qty))));
+    bodyEl.appendChild(titleEl);
+
+    if (typeof it.rating === 'number' && isFinite(it.rating)) {
+      bodyEl.appendChild(elt('div', { cls: 'it-meta', text: stars(it.rating, it.reviewCount) }));
+    }
+    li.appendChild(bodyEl);
+    return li;
+  }
+
+  function renderApproval(data) {
+    clear(app); app.className = '';
+    app.appendChild(elt('h1', { text: 'Approve this purchase?' }));
+    if (data.guardianName) app.appendChild(elt('p', { text: 'Requested approval from ' + data.guardianName + '.' }));
+
+    var totalP = elt('p'); totalP.appendChild(elt('strong', { text: 'Total: $' + money(data.total) }));
+    app.appendChild(totalP);
+
+    var ul = elt('ul', { cls: 'items' });
+    (Array.isArray(data.items) ? data.items : []).forEach(function (it) { ul.appendChild(itemRow(it || {})); });
+    app.appendChild(ul);
+
+    var bar = elt('div');
+    var approve = elt('button', { cls: 'ok', text: 'Approve' });
+    var reject = elt('button', { cls: 'no', text: 'Reject' });
+    var note = elt('p', { cls: 'err' });
+    function decide(verdict) {
+      approve.disabled = reject.disabled = true; note.textContent = '';
+      fetch(DECISION_URL, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: token, verdict: verdict }),
+      }).then(function (r) { return r.json(); }).then(function (res) {
+        if (res && res.ok) {
+          message(verdict === 'approved' ? 'Approved ✓' : 'Rejected', 'You can close this page.');
+        } else if (res && res.reason && REASONS[res.reason]) {
+          message(REASONS[res.reason]);
+        } else {
+          approve.disabled = reject.disabled = false;
+          note.textContent = 'Something went wrong. Please try again.';
+        }
+      }).catch(function () {
+        approve.disabled = reject.disabled = false;
+        note.textContent = 'Network error. Check your connection and try again.';
+      });
+    }
+    approve.addEventListener('click', function () { decide('approved'); });
+    reject.addEventListener('click', function () { decide('rejected'); });
+    bar.appendChild(approve); bar.appendChild(reject); bar.appendChild(note);
+    app.appendChild(bar);
+  }
+
+  function load() {
+    if (!token) { message('Invalid link'); return; }
+    fetch(DECISION_URL + '?token=' + encodeURIComponent(token))
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data && data.ok) renderApproval(data);
+        else message(REASONS[data && data.reason] || 'This link cannot be used.');
+      })
+      .catch(function () { message('Could not load this request.', 'Check your connection and refresh the page.'); });
+  }
+  load();
+</script>
+</body>
+</html>

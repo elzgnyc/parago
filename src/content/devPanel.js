@@ -15,6 +15,17 @@ import { SupabaseRelay } from '../relay/supabaseRelay.js';
 import { shouldUseSupabase } from '../relay/selectRelay.js';
 import { CONFIG } from '../config.js';
 import { SAMPLE_CART } from './devSample.js';
+import { parseCart } from '../lib/parseCart.js';
+
+// What the demo + test email show. Prefer the shopper's ACTUAL cart parsed live
+// from the page, so dev mode reflects the items literally in their Amazon cart.
+// Fall back to the fixed SAMPLE_CART only when there's nothing real to read — an
+// empty cart, or a checkout page where the cart selectors don't match. Cart-page
+// items carry no rating/reviewCount; the email renders fine without stars.
+function currentCart() {
+  const parsed = parseCart(document);
+  return parsed.items && parsed.items.length ? parsed : SAMPLE_CART;
+}
 
 const PANEL_ID = 'parago-dev-panel';
 const BAR_ID = 'parago-dev-bar';
@@ -86,9 +97,10 @@ function endDemo() {
 // real approved / rejected states a guardian decision would trigger.
 function demoApproval() {
   setLang(currentSettings.lang);
+  const cart = currentCart();
   showOverlay({
-    items: SAMPLE_CART.items,
-    total: SAMPLE_CART.total,
+    items: cart.items,
+    total: cart.total,
     guardianName: currentSettings.guardianName || 'Mom',
     status: 'pending',
   });
@@ -129,7 +141,8 @@ async function sendTestEmail() {
   });
   toast('Sending test email to ' + currentSettings.guardianEmail + '...');
   try {
-    await relay.submitRequest({ total: SAMPLE_CART.total, items: SAMPLE_CART.items });
+    const cart = currentCart();
+    await relay.submitRequest({ total: cart.total, items: cart.items });
     toast('Sent to ' + currentSettings.guardianEmail + '. Open it; the Approve/Reject link is live (buys nothing).');
   } catch (e) {
     toast('Could not send: ' + ((e && e.message) || e));

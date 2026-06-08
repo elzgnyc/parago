@@ -15,8 +15,10 @@ src/config.js
 # Supabase CLI link state (contains your project ref, org id, pooler URL)
 supabase/.temp/
 
-# design docs — kept local, not published
-docs/
+# design docs — kept local, not published (but DO publish the guardian approval page)
+docs/*
+!docs/approve.html
+!docs/.nojekyll
 
 # OS cruft
 .DS_Store

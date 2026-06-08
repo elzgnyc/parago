@@ -70,13 +70,24 @@ function parseItemQty(node) {
 const ACTIVE_CART_CONTAINERS = ['#sc-active-cart', '#activeCartViewForm', '#sc-active-cart-content'];
 const NON_PURCHASE_CONTAINERS = '#sc-saved-cart, #saved-for-later';
 
-export function parseCartItems(root = document) {
-  let scope = null;
+// Amazon's per-line selection checkbox: aria-label "Select <product> for checkout".
+// A DEselected line stays in the cart and out of the subtotal but is NOT being
+// purchased, so only checked lines should reach the guardian. Identify the control
+// by its aria-label so other checkboxes (e.g. gift options) never trigger exclusion.
+// (aria-label is Amazon-locale text; this matches the amazon.com English wording.)
+const SELECTION_CHECKBOX = 'input[type="checkbox"][aria-label*="for checkout" i]';
+
+// The active-cart subtree to parse within (falls back to the whole root).
+function activeScope(root) {
   for (const sel of ACTIVE_CART_CONTAINERS) {
     const el = root.querySelector(sel);
-    if (el) { scope = el; break; }
+    if (el) return el;
   }
-  const searchRoot = scope || root;
+  return root;
+}
+
+export function parseCartItems(root = document) {
+  const searchRoot = activeScope(root);
 
   const items = [];
   const seen = new Set();
@@ -84,6 +95,11 @@ export function parseCartItems(root = document) {
     // Drop "Saved for later" (and similar) even when scoped: defensive if a future
     // layout nests them, and the only guard on the whole-doc fallback path.
     if (node.closest(NON_PURCHASE_CONTAINERS)) continue;
+    // Send only what's actually checked out: skip a line ONLY when its selection
+    // checkbox is positively unchecked. No checkbox / unknown markup → keep it, so we
+    // never hide a real purchase from the guardian.
+    const sel = node.querySelector(SELECTION_CHECKBOX);
+    if (sel && !sel.checked) continue;
     const asin = node.getAttribute('data-asin') || null;
     if (asin && seen.has(asin)) continue;
     if (asin) seen.add(asin);
@@ -104,6 +120,40 @@ export function parseCartItems(root = document) {
   return items;
 }
 
+// Is any active-cart line explicitly DEselected for checkout? (Its selection
+// checkbox is present and unchecked.)
+function hasDeselectedLine(root) {
+  const scope = activeScope(root);
+  for (const node of scope.querySelectorAll(ITEM_SELECTORS)) {
+    if (node.closest(NON_PURCHASE_CONTAINERS)) continue;
+    const sel = node.querySelector(SELECTION_CHECKBOX);
+    if (sel && !sel.checked) return true;
+  }
+  return false;
+}
+
+// Sum of unit price × qty over items; null if ANY item lacks a finite price, so the
+// caller can keep the page subtotal rather than send a partial (wrong) number.
+function sumItemPrices(items) {
+  let sum = 0;
+  for (const it of items) {
+    if (typeof it.price !== 'number' || !Number.isFinite(it.price)) return null;
+    const qty = Number.isFinite(it.qty) && it.qty > 0 ? it.qty : 1;
+    sum += it.price * qty;
+  }
+  return Math.round(sum * 100) / 100; // guard against float drift (7.26, not 7.2600001)
+}
+
 export function parseCart(root = document) {
-  return { total: parseCartTotal(root), items: parseCartItems(root) };
+  const items = parseCartItems(root);
+  let total = parseCartTotal(root);
+  // Amazon's active-cart subtotal reflects the WHOLE cart, not the checkbox
+  // selection. When lines are deselected, send the SELECTED subtotal so the total
+  // matches the items the guardian sees — but only when every selected item has a
+  // parseable price (else keep the page subtotal, the best available number).
+  if (hasDeselectedLine(root)) {
+    const selectedSum = sumItemPrices(items);
+    if (selectedSum != null) total = selectedSum;
+  }
+  return { total, items };
 }

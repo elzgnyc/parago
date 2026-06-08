@@ -120,3 +120,110 @@ describe('parseCartItems enriches items with EASY fields', () => {
     expect(item.qty).toBe(1);
   });
 });
+
+// Amazon marks each active-cart line with a "Select <product> for checkout"
+// checkbox. A DEselected item stays in the cart (and out of the subtotal) but is
+// NOT being purchased, so it must not reach the guardian. Only what's checked out
+// should be sent.
+describe('parseCartItems excludes items deselected for checkout', () => {
+  it('drops an item whose "Select … for checkout" checkbox is unchecked', () => {
+    document.body.innerHTML = `
+      <div id="sc-active-cart">
+        <div class="sc-list-item" data-asin="SEL1">
+          <input type="checkbox" aria-label="Select Meditations (Penguin Classics) for checkout" checked="">
+          <div class="sc-product-title">Meditations</div>
+        </div>
+        <div class="sc-list-item" data-asin="SEL2">
+          <input type="checkbox" aria-label="Select Deselected Book for checkout">
+          <div class="sc-product-title">Deselected Book</div>
+        </div>
+      </div>`;
+    expect(parseCartItems(document).map((i) => i.title)).toEqual(['Meditations']);
+  });
+
+  it('keeps an item that has no selection checkbox (filter only on a confident deselect)', () => {
+    document.body.innerHTML = `
+      <div id="sc-active-cart">
+        <div class="sc-list-item" data-asin="NOCB">
+          <div class="sc-product-title">No Checkbox Item</div>
+        </div>
+      </div>`;
+    expect(parseCartItems(document).map((i) => i.title)).toEqual(['No Checkbox Item']);
+  });
+
+  it('ignores a non-selection checkbox (e.g. gift options) when deciding inclusion', () => {
+    // An unchecked checkbox that is NOT the "for checkout" selection control must
+    // not cause exclusion — otherwise a stray checkbox would hide a purchased item.
+    document.body.innerHTML = `
+      <div id="sc-active-cart">
+        <div class="sc-list-item" data-asin="GIFT">
+          <input type="checkbox" aria-label="This will be a gift">
+          <div class="sc-product-title">Gift Item</div>
+        </div>
+      </div>`;
+    expect(parseCartItems(document).map((i) => i.title)).toEqual(['Gift Item']);
+  });
+});
+
+// Amazon's active-cart subtotal (#sc-subtotal-amount-activecart) reflects the WHOLE
+// active cart, not the checkbox selection. When some lines are deselected, the total
+// the guardian sees must match the items shown — i.e. the SELECTED subtotal.
+describe('parseCart total tracks the selected items', () => {
+  const cart = (extra) => `
+    <div id="sc-active-cart">
+      <div class="sc-list-item" data-asin="KEEP" ${extra || ''}>
+        <input type="checkbox" aria-label="Select Meditations for checkout" checked="">
+        <div class="sc-product-title">Meditations</div>
+        <span class="a-price"><span class="a-offscreen">$7.26</span></span>
+      </div>
+      <div class="sc-list-item" data-asin="DROP">
+        <input type="checkbox" aria-label="Select Expensive Thing for checkout">
+        <div class="sc-product-title">Expensive Thing</div>
+        <span class="a-price"><span class="a-offscreen">$229.99</span></span>
+      </div>
+    </div>
+    <div id="sc-subtotal-amount-activecart"><span class="a-offscreen">$237.25</span></div>`;
+
+  it('totals only the selected items, not the whole-cart subtotal', () => {
+    document.body.innerHTML = cart();
+    const { total, items } = parseCart(document);
+    expect(items.map((i) => i.title)).toEqual(['Meditations']);
+    expect(total).toBe(7.26); // NOT 237.25
+  });
+
+  it('multiplies unit price by quantity in the selected total', () => {
+    document.body.innerHTML = cart('data-quantity="3"');
+    expect(parseCart(document).total).toBe(21.78); // 7.26 × 3
+  });
+
+  it('keeps the page subtotal when a selected item has no parseable price', () => {
+    // Can't trust a partial sum, so fall back to the page subtotal rather than
+    // send a fabricated number.
+    document.body.innerHTML = `
+      <div id="sc-active-cart">
+        <div class="sc-list-item" data-asin="KEEP">
+          <input type="checkbox" aria-label="Select NoPrice for checkout" checked="">
+          <div class="sc-product-title">NoPrice</div>
+        </div>
+        <div class="sc-list-item" data-asin="DROP">
+          <input type="checkbox" aria-label="Select Other for checkout">
+          <div class="sc-product-title">Other</div>
+        </div>
+      </div>
+      <div id="sc-subtotal-amount-activecart"><span class="a-offscreen">$99.00</span></div>`;
+    expect(parseCart(document).total).toBe(99);
+  });
+
+  it('leaves the total unchanged when nothing is deselected', () => {
+    document.body.innerHTML = `
+      <div id="sc-active-cart">
+        <div class="sc-list-item" data-asin="A">
+          <input type="checkbox" aria-label="Select A for checkout" checked="">
+          <div class="sc-product-title">A</div>
+          <span class="a-price"><span class="a-offscreen">$5.00</span></span>
+        </div>
+      </div>
+      <div id="sc-subtotal-amount-activecart"><span class="a-offscreen">$5.00</span></div>`;
+    expect(parseCart(document).total).toBe(5);
+  });
+});
