@@ -62,3 +62,61 @@ describe('parseCart excludes Saved for later', () => {
     expect(parseCartItems(document).map((i) => i.title)).toEqual(['Loose Active']);
   });
 });
+
+describe('parseCartItems enriches items with EASY fields', () => {
+  it('parses price, qty, image, and url from item markup', () => {
+    document.body.innerHTML = `
+      <div id="sc-active-cart">
+        <div class="sc-list-item" data-asin="B0EASY1" data-quantity="2">
+          <div class="sc-product-title">Enriched Item</div>
+          <span class="a-price"><span class="a-offscreen">$12.34</span></span>
+          <img class="sc-product-image" src="https://m.media-amazon.com/images/I/easy.jpg">
+        </div>
+      </div>`;
+    const [item] = parseCartItems(document);
+    expect(item.price).toBe(12.34);
+    expect(item.qty).toBe(2);
+    expect(item.image).toBe('https://m.media-amazon.com/images/I/easy.jpg');
+    expect(item.url).toBe('https://www.amazon.com/dp/B0EASY1');
+    expect(item.title).toBe('Enriched Item');
+    expect(item.asin).toBe('B0EASY1');
+  });
+
+  it('reads qty from a quantity input when data-quantity is absent', () => {
+    document.body.innerHTML = `
+      <div id="sc-active-cart">
+        <div class="sc-list-item" data-asin="B0QTYIN">
+          <div class="sc-product-title">Qty Input Item</div>
+          <input class="sc-quantity-textfield" name="quantity" value="3">
+        </div>
+      </div>`;
+    expect(parseCartItems(document)[0].qty).toBe(3);
+  });
+
+  it('defaults qty to 1 when there is no quantity markup', () => {
+    document.body.innerHTML = `
+      <div id="sc-active-cart">
+        <div class="sc-list-item" data-asin="B0NOQTY">
+          <div class="sc-product-title">No Qty Item</div>
+        </div>
+      </div>`;
+    expect(parseCartItems(document)[0].qty).toBe(1);
+  });
+
+  it('null price/image and null url when markup and asin are absent', () => {
+    // Empty data-asin still matches [data-name][data-asin] but yields a null asin,
+    // so url must be null (no /dp/ link without an asin).
+    document.body.innerHTML = `
+      <div id="sc-active-cart">
+        <div class="sc-list-item" data-asin="" data-name="No Asin Item">
+          <div class="sc-product-title">No Asin Item</div>
+        </div>
+      </div>`;
+    const [item] = parseCartItems(document);
+    expect(item.asin).toBeNull();
+    expect(item.url).toBeNull();
+    expect(item.price).toBeNull();
+    expect(item.image).toBeNull();
+    expect(item.qty).toBe(1);
+  });
+});

@@ -1,0 +1,161 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Parago: surface preview (rich detail)</title>
+<style>
+  body { font-family: system-ui, sans-serif; background:#eceee9; color:#1a2e22; margin:0; padding:2rem; }
+  h1.page { font-size:1.3rem; }
+  .grid { display:grid; gap:2rem; max-width:64rem; margin:0 auto; }
+  .surface { background:#f7f8f5; border:1px solid #d4d8cf; border-radius:12px; overflow:hidden; }
+  .surface > .label { background:#1f8a4c; color:#fff; font-size:.8rem; font-weight:600;
+    letter-spacing:.03em; text-transform:uppercase; padding:.5rem .9rem; }
+  .surface > .frame { padding:1.25rem; }
+  .note { font-size:.85rem; color:#566; margin:.3rem 0 1rem; }
+  .src { font-size:.72rem; }
+  .easy { color:#1f8a4c; } .hard { color:#b26a00; }
+
+  /* item card shared */
+  .item { display:grid; grid-template-columns:64px 1fr auto; gap:.8rem; align-items:start;
+    padding:.8rem 0; border-bottom:1px solid #eee; }
+  .item:last-child { border-bottom:0; }
+  .item .thumb { width:64px; height:64px; border-radius:6px; background:#f0f0ee;
+    display:flex; align-items:center; justify-content:center; }
+  .item .thumb svg { width:40px; height:40px; }
+  .item .ttl { font-size:.95rem; line-height:1.35; margin:0 0 .25rem; }
+  .item .ttl a { color:#1066c2; text-decoration:none; }
+  .item .ttl a:hover { text-decoration:underline; }
+  .item .meta { font-size:.8rem; color:#667; }
+  .item .stars { color:#e8a200; letter-spacing:1px; }
+  .item .rc { color:#667; }
+  .item .price { font-weight:700; white-space:nowrap; text-align:right; }
+  .item .qty { font-size:.8rem; color:#667; text-align:right; }
+
+  .email { background:#fff; border:1px solid #ddd; border-radius:8px; max-width:40rem; }
+  .email .hdr { border-bottom:1px solid #eee; padding:.8rem 1rem; font-size:.9rem; }
+  .email .hdr .subj { font-weight:700; font-size:1.05rem; margin-bottom:.3rem; }
+  .email .body { padding:1rem; }
+  .total { font-size:1.1rem; }
+
+  .gpage { background:#fff; border:1px solid #ddd; border-radius:8px; }
+  .gpage .inner { max-width:36rem; margin:1.5rem auto; padding:0 1rem; color:#222; }
+  .gpage button { font-size:1.1rem; padding:.7rem 1.4rem; margin:.4rem .4rem 0 0; border-radius:8px; border:0; cursor:pointer; }
+  .gpage .ok { background:#1f8a4c; color:#fff; } .gpage .no { background:#b23b3b; color:#fff; }
+</style>
+
+<!--
+  Offline placeholder thumbnail. The real templates use the item.image URL parsed
+  from the cart line item, rendered as a small <img> in the same 64px box.
+-->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="thumb-ph" viewBox="0 0 24 24">
+    <path fill="#9aa39a" d="M7 4 5.5 7H3v2h1l1 11h14l1-11h1V7h-2.5L18 4H7zm.9 2h8.2l.8 1.5H7.1L7.9 6zM6.2 9h11.6l-.8 9H7l-.8-9z"/>
+  </symbol>
+</svg>
+
+<div class="grid">
+  <h1 class="page">Parago: rich guardian detail (mockup)</h1>
+  <p class="note">
+    Source legend:
+    <span class="src easy">● easy = parsed straight off the cart page (shipped)</span> &nbsp;
+    <span class="src hard">● hard = per-ASIN /dp fetch, best-effort (shipped, fail-soft)</span>
+  </p>
+
+  <!-- EMAIL -->
+  <div class="surface">
+    <div class="label">1 · Email to guardian</div>
+    <div class="frame">
+      <div class="email">
+        <div class="hdr">
+          <div class="subj">Approve a purchase: $47.98</div>
+          <div>From: Parago · To: Mom</div>
+        </div>
+        <div class="body">
+          <p>Mom, a purchase needs your approval.</p>
+
+          <div class="item">
+            <div class="thumb"><svg><use href="#thumb-ph"></use></svg></div>
+            <div>
+              <p class="ttl"><a href="https://www.amazon.com/dp/B0ABC12345">Anker USB-C to USB-C Cable (6 ft, 100W), USB 2.0 Type-C Charging Cable for iPhone 15, MacBook Pro, iPad Pro, Samsung Galaxy</a></p>
+              <div class="meta">
+                <span class="stars">★★★★½</span>
+                <span class="rc">4.7 · 18,432 ratings</span>
+              </div>
+            </div>
+            <div>
+              <div class="price">$9.99</div>
+              <div class="qty">Qty 1</div>
+            </div>
+          </div>
+
+          <div class="item">
+            <div class="thumb"><svg><use href="#thumb-ph"></use></svg></div>
+            <div>
+              <p class="ttl"><a href="https://www.amazon.com/dp/B0XYZ98765">Logitech M720 Triathlon Multi-Device Wireless Mouse, Bluetooth, USB Unifying Receiver, 8 Buttons, 2-Year Battery</a></p>
+              <div class="meta">
+                <span class="stars">★★★★½</span>
+                <span class="rc">4.5 · 9,210 ratings</span>
+              </div>
+            </div>
+            <div>
+              <div class="price">$37.99</div>
+              <div class="qty">Qty 1</div>
+            </div>
+          </div>
+
+          <p class="total"><strong>Total: $47.98</strong></p>
+          <p><a href="#">Review and approve or reject</a></p>
+          <p style="color:#888;font-size:12px">This link expires in 24 hours.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- GUARDIAN PAGE -->
+  <div class="surface">
+    <div class="label">2 · Guardian approval page</div>
+    <div class="frame">
+      <div class="gpage"><div class="inner">
+        <h1>Approve this purchase?</h1>
+        <p>Requested approval from Mom.</p>
+
+        <div class="item">
+          <div class="thumb"><svg><use href="#thumb-ph"></use></svg></div>
+          <div>
+            <p class="ttl"><a href="https://www.amazon.com/dp/B0ABC12345">Anker USB-C to USB-C Cable (6 ft, 100W), USB 2.0 Type-C Charging Cable for iPhone 15, MacBook Pro, iPad Pro, Samsung Galaxy</a></p>
+            <div class="meta"><span class="stars">★★★★½</span> <span class="rc">4.7 · 18,432 ratings</span></div>
+          </div>
+          <div><div class="price">$9.99</div><div class="qty">Qty 1</div></div>
+        </div>
+        <div class="item">
+          <div class="thumb"><svg><use href="#thumb-ph"></use></svg></div>
+          <div>
+            <p class="ttl"><a href="https://www.amazon.com/dp/B0XYZ98765">Logitech M720 Triathlon Multi-Device Wireless Mouse, Bluetooth, USB Unifying Receiver, 8 Buttons, 2-Year Battery</a></p>
+            <div class="meta"><span class="stars">★★★★½</span> <span class="rc">4.5 · 9,210 ratings</span></div>
+          </div>
+          <div><div class="price">$37.99</div><div class="qty">Qty 1</div></div>
+        </div>
+
+        <p class="total"><strong>Total: $47.98</strong></p>
+        <form onsubmit="return false">
+          <button class="ok">Approve</button>
+          <button class="no">Reject</button>
+        </form>
+      </div></div>
+    </div>
+  </div>
+
+  <!-- DATA MAP -->
+  <div class="surface">
+    <div class="label">3 · Where each field comes from</div>
+    <div class="frame">
+      <ul style="line-height:1.9">
+        <li><span class="src easy">●</span> <strong>Full product title + url</strong>: parsed from the cart line, full untruncated text, linked to <code>https://www.amazon.com/dp/&lt;asin&gt;</code>. Shipped.</li>
+        <li><span class="src easy">●</span> <strong>Product image</strong>: cart line item <code>img</code> src, absolute URL passed straight through. Shipped.</li>
+        <li><span class="src easy">●</span> <strong>Per-item price</strong>: unit price (dollars) read off each cart line. Shipped.</li>
+        <li><span class="src easy">●</span> <strong>Quantity</strong>: integer from the cart line, defaults to 1. Shipped.</li>
+        <li><span class="src hard">●</span> <strong>Star rating + review count</strong>: not on the cart page. A background fetch of <code>/dp/&lt;asin&gt;</code> via <code>parseProductMeta</code> scrapes rating (0..5) and review count. Best-effort: shipped, and fail-softs to nothing (no meta line rendered) when Amazon returns a robot-check page.</li>
+      </ul>
+      <p class="note">Easy fields are a small cart-parse change already in checkout enrichment. The hard fields are the only network cost, one extra /dp request per ASIN, and they degrade gracefully: the email and approval page just omit the star line when the fetch is blocked.</p>
+    </div>
+  </div>
+</div>

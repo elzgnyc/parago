@@ -46,6 +46,22 @@ export function parseCartTotal(root = document) {
 
 const ITEM_SELECTORS = '.sc-list-item[data-asin], [data-asin].sc-list-item, [data-name][data-asin]';
 const TITLE_SELECTORS = '.sc-product-title, .a-truncate-full, a.sc-product-link, .sc-product-link';
+const ITEM_PRICE_SELECTORS = '.sc-product-price, .a-price .a-offscreen';
+const ITEM_IMAGE_SELECTORS = 'img.sc-product-image, img[data-old-hires], img';
+
+// Deterministic per-item quantity (feeds snapshot matching; flaky qty causes
+// spurious re-approvals). Read explicit markup first, displayed text last; any
+// non-positive-integer result falls back to 1.
+function parseItemQty(node) {
+  const raw =
+    node.getAttribute('data-quantity') ||
+    node.querySelector('input.sc-quantity-textfield, select[name="quantity"], [name="quantity"]')?.value ||
+    node.querySelector('.a-dropdown-prompt')?.textContent ||
+    '';
+  const m = String(raw).match(/\d+/);
+  const n = m ? parseInt(m[0], 10) : NaN;
+  return Number.isInteger(n) && n > 0 ? n : 1;
+}
 
 // The active cart (what's actually being purchased). Amazon's "Saved for later"
 // list uses the SAME .sc-list-item[data-asin] markup, so without scoping it would
@@ -74,7 +90,16 @@ export function parseCartItems(root = document) {
     const titleEl = node.querySelector(TITLE_SELECTORS);
     let title = titleEl ? titleEl.textContent : (node.getAttribute('data-name') || '');
     title = (title || '').replace(/\s+/g, ' ').trim();
-    if (title) items.push({ title, asin });
+    if (!title) continue;
+
+    // Per-item unit price (NOT the cart grand total); null when absent.
+    const priceEl = node.querySelector(ITEM_PRICE_SELECTORS);
+    const price = priceEl ? parseCurrency(priceEl.textContent) : null;
+    const qty = parseItemQty(node);
+    const imgEl = node.querySelector(ITEM_IMAGE_SELECTORS);
+    const image = (imgEl && imgEl.getAttribute('src')) || node.getAttribute('data-image') || null;
+    const url = asin ? ('https://www.amazon.com/dp/' + asin) : null;
+    items.push({ asin, title, price, qty, image, url });
   }
   return items;
 }

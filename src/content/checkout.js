@@ -24,6 +24,35 @@ const TOTAL_EPSILON = 0.005;
 export let relay = new MockRelay();
 export function _setRelayForTest(r) { relay = r; }
 
+// Ask the background worker for an asin's rating/review count. Resolves to a
+// {rating, reviewCount} object even on failure; null fields mean "unknown".
+function bgProductMeta(asin) {
+  return new Promise((resolve) => {
+    try {
+      chrome.runtime.sendMessage({ type: 'parago_product_meta', asin }, (resp) => {
+        if (chrome.runtime && chrome.runtime.lastError) return resolve({ rating: null, reviewCount: null });
+        resolve(resp || { rating: null, reviewCount: null });
+      });
+    } catch (e) { resolve({ rating: null, reviewCount: null }); }
+  });
+}
+
+// Enrich cart items with rating/reviews just before a relay submit. Fail soft and
+// time-bounded: a slow Amazon response must never hang checkout, so each lookup
+// races a timer; on timeout/error/no-asin the item passes through unchanged. In
+// vitest (no chrome mock) this is a pure pass-through so existing tests still pass.
+export async function enrichItems(items, { timeoutMs = 2000 } = {}) {
+  if (!Array.isArray(items) || !items.length) return items || [];
+  if (typeof chrome === 'undefined' || !chrome.runtime || !chrome.runtime.sendMessage) return items;
+  return Promise.all(items.map(async (item) => {
+    if (!item || !item.asin) return item;
+    const timeout = new Promise((resolve) => setTimeout(() => resolve(null), timeoutMs));
+    const meta = await Promise.race([bgProductMeta(item.asin), timeout]);
+    if (!meta) return item; // timed out: leave unchanged
+    return { ...item, rating: meta.rating ?? null, reviewCount: meta.reviewCount ?? null };
+  }));
+}
+
 function buildRelay(settings) {
   if (shouldUseSupabase(settings, CONFIG)) {
     return new SupabaseRelay({
@@ -103,7 +132,8 @@ export async function engage(settings, parsed) {
     const pending = await relay.listPending();
     req = pickPendingRequest(pending, parsed.total);
     if (!req) {
-      const id = await relay.submitRequest({ total: parsed.total, items: parsed.items });
+      const enrichedItems = await enrichItems(parsed.items);
+      const id = await relay.submitRequest({ total: parsed.total, items: enrichedItems });
       req = await relay.getRequest(id);
     }
   } catch (e) {
@@ -173,7 +203,8 @@ async function onPlaceOrderClickCapture(ev) {
   ev.stopImmediatePropagation();
   showProcessing(); // blocking success screen prevents a second submit
   try {
-    const id = await relay.submitRequest({ total, items });
+    const enriched = await enrichItems(items);
+    const id = await relay.submitRequest({ total, items: enriched });
     await placements.put(id, {
       snapshot: buildSnapshot({ items, total }, Date.now()),
       status: 'pending', createdAt: Date.now(), placedAt: null, lastError: null,
