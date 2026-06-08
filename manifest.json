@@ -23,6 +23,12 @@
       "js": ["dist/checkout.js"],
       "css": ["src/content/overlay.css"],
       "run_at": "document_idle"
+    },
+    {
+      "matches": ["*://*.amazon.com/*"],
+      "js": ["dist/devPanel.js"],
+      "css": ["src/content/overlay.css", "src/content/devPanel.css"],
+      "run_at": "document_idle"
     }
   ],
   "options_page": "src/ui/options.html",

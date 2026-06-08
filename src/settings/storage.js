@@ -12,6 +12,7 @@ export const DEFAULTS = {
   guardianName: '',     // label for whoever approves
   guardianEmail: '',    // where approval emails are sent (required for remote approval)
   lang: 'en',           // 'en' | 'vi'
+  devMode: false,       // show the on-page Developer test panel (no real purchases)
 };
 
 export function getSettings() {

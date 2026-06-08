@@ -5,6 +5,7 @@ const fields = [
   'lang', 'minStars', 'minRatings', 'mode',
   'hideSponsored', 'flagLowRating', 'flagFewRatings', 'flagNonPrime', 'hoverReveal',
   'guardianMode', 'guardianLimit', 'guardianName', 'guardianEmail',
+  'devMode',
 ];
 
 const SVGNS = 'http://www.w3.org/2000/svg';
@@ -111,6 +112,7 @@ function load(settings) {
   document.getElementById('guardianLimit').value = settings.guardianLimit;
   document.getElementById('guardianName').value = settings.guardianName;
   document.getElementById('guardianEmail').value = settings.guardianEmail;
+  document.getElementById('devMode').checked = settings.devMode;
   setLang(settings.lang);
   applyI18n();
   renderStars(settings.minStars);
@@ -132,6 +134,7 @@ function readForm() {
     guardianLimit: Math.round(toFinite(document.getElementById('guardianLimit').value, DEFAULTS.guardianLimit, 0, Infinity)),
     guardianName: document.getElementById('guardianName').value,
     guardianEmail: document.getElementById('guardianEmail').value.trim(),
+    devMode: document.getElementById('devMode').checked,
   };
 }
 

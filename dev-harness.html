@@ -1,0 +1,46 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Parago dev-panel harness</title>
+<link rel="stylesheet" href="/src/content/overlay.css">
+<link rel="stylesheet" href="/src/content/devPanel.css">
+<style>
+  body { font-family: 'Amazon Ember', Arial, sans-serif; margin: 0; padding: 2rem; background: #eaeded; }
+  .buybox { background: #fff; border-radius: 8px; padding: 16px 18px; max-width: 320px; margin: 0 0 20px; }
+  .sub { font-size: 18px; margin: 0 0 12px; }
+  /* stand-in for Amazon's real yellow pill button */
+  .a-button { display: block; width: 100%; }
+  .a-button input {
+    width: 100%; box-sizing: border-box; cursor: pointer;
+    font-size: 15px; color: #0f1111; padding: 9px 18px;
+    border-radius: 100px; border: 1px solid #fcd200; background: #ffd814;
+  }
+</style>
+
+<div class="buybox" id="cartbox">
+  <p class="sub">Subtotal (1 item): <strong>$12.99</strong></p>
+  <span id="sc-buy-box-ptc-button" class="a-button"><input type="submit" value="Proceed to checkout"></span>
+</div>
+
+<div class="buybox" id="checkoutbox">
+  <span id="placeYourOrder" class="a-button"><input type="submit" value="Place your order"></span>
+  <p style="font-size:12px;color:#565959;margin:.6rem 0 0">By placing your order, you agree to Amazon's terms.</p>
+</div>
+
+<script>
+  window.chrome = {
+    runtime: {
+      lastError: undefined,
+      sendMessage: function (_msg, cb) { if (typeof cb === 'function') cb({ ok: false }); },
+    },
+    storage: {
+      sync: {
+        get: function (defaults, cb) {
+          cb(Object.assign({}, defaults, { devMode: true, guardianName: 'Mom', lang: 'en', guardianEmail: '' }));
+        },
+      },
+      local: { get: function (d, cb) { cb(d || {}); }, set: function (_v, cb) { cb && cb(); } },
+      onChanged: { addListener: function () {} },
+    },
+  };
+</script>
+<script src="/dist/devPanel.js"></script>
