@@ -89,6 +89,11 @@ input:focus {
   box-shadow: 0 0 0 3px var(--accent-tint);
 }
 
+/* Small explanatory hint under a field */
+.field-hint {
+  margin: 8px 0 0; font-size: 13px; line-height: 1.4; color: var(--muted, #667);
+}
+
 /* Toggle switches */
 .switch-row {
   display: flex; align-items: center; justify-content: space-between; gap: 16px;

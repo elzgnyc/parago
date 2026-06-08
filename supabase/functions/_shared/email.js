@@ -7,6 +7,27 @@ function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, (c) =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
+// Render the star/rating meta line for the HTML email. Returns '' when rating is
+// not a finite number; omits the review count when reviewCount is missing.
+function renderStars(rating, reviewCount) {
+  // null/undefined rating: omit the line entirely per contract. Note Number(null)
+  // is 0 (finite), so an explicit nullish gate is required before coercion.
+  if (rating == null) return '';
+  const r = Number(rating);
+  if (!Number.isFinite(r)) return '';
+  // Clamp to [0,5]: a finite but out-of-range rating (items come from the request
+  // body, validated nowhere) would make full/empty negative and crash '☆'.repeat().
+  const cr = Math.max(0, Math.min(5, r));
+  const r2 = Math.round(cr * 2) / 2;
+  const full = Math.floor(r2);
+  const half = (r2 - full) === 0.5;
+  const empty = 5 - full - (half ? 1 : 0);
+  const stars = '★'.repeat(full) + (half ? '½' : '') + '☆'.repeat(empty);
+  const rc = Number(reviewCount);
+  // null/undefined count: show the rating without the count.
+  const count = (reviewCount != null && Number.isFinite(rc)) ? ` · ${rc.toLocaleString()} ratings` : '';
+  return `${stars} ${cr.toFixed(1)}${count}`;
+}
 
 export function buildBrevoPayload({ senderEmail, senderName, guardianEmail, guardianName, total, items, link }) {
   const list = Array.isArray(items) ? items : [];
@@ -14,15 +35,44 @@ export function buildBrevoPayload({ senderEmail, senderName, guardianEmail, guar
   const totalStr = money(total);
 
   const itemsHtml = list.map((it) => {
-    const price = (it && typeof it.price === 'number') ? ` — $${money(it.price)}` : '';
-    return `<li>${escapeHtml((it && it.title) || 'Item')}${price}</li>`;
+    const o = it || {};
+    const title = escapeHtml(o.title || 'Item');
+    // Only emit an <img> when image looks like an http(s) URL (clients may block it).
+    const img = (typeof o.image === 'string' && /^https?:\/\//i.test(o.image))
+      ? `<img src="${escapeHtml(o.image)}" width="64" height="64" alt="" style="vertical-align:top;border:0" /> `
+      : '';
+    // Link the title to the product page only for an http(s) url. escapeHtml
+    // neutralises quotes/brackets but NOT a "javascript:" scheme (no special
+    // chars), so a crafted url from the request body would yield a clickable
+    // javascript: link. Match the image guard: scheme-allowlist before linking.
+    const safeUrl = (typeof o.url === 'string' && /^https?:\/\//i.test(o.url)) ? o.url : null;
+    const titleHtml = safeUrl
+      ? `<a href="${escapeHtml(safeUrl)}">${title}</a>`
+      : title;
+    const meta = renderStars(o.rating, o.reviewCount);
+    const metaHtml = meta ? `<div style="color:#888;font-size:12px">${meta}</div>` : '';
+    const price = (typeof o.price === 'number') ? ` · $${money(o.price)}` : '';
+    const qtyNum = Number(o.qty);
+    const qty = (Number.isFinite(qtyNum) && qtyNum > 1) ? ` × ${qtyNum}` : '';
+    return `<li style="margin-bottom:12px">${img}${titleHtml}${price}${qty}${metaHtml}</li>`;
   }).join('');
   const itemsText = list.map((it) => {
-    const price = (it && typeof it.price === 'number') ? ` - $${money(it.price)}` : '';
-    return `- ${(it && it.title) || 'Item'}${price}`;
+    const o = it || {};
+    const price = (typeof o.price === 'number') ? ` - $${money(o.price)}` : '';
+    const qtyNum = Number(o.qty);
+    const qty = (Number.isFinite(qtyNum) && qtyNum > 1) ? ` x${qtyNum}` : '';
+    const r = Number(o.rating);
+    let rating = '';
+    if (o.rating != null && Number.isFinite(r)) {
+      const rc = Number(o.reviewCount);
+      rating = (o.reviewCount != null && Number.isFinite(rc))
+        ? ` ${r.toFixed(1)} (${rc.toLocaleString()} ratings)`
+        : ` ${r.toFixed(1)}`;
+    }
+    return `- ${o.title || 'Item'}${price}${qty}${rating}`;
   }).join('\n');
 
-  const subject = `Approve a purchase — $${totalStr}`;
+  const subject = `Approve a purchase: $${totalStr}`;
   const htmlContent =
     `<p>${guardianName ? escapeHtml(guardianName) + ', a' : 'A'} purchase needs your approval.</p>` +
     `<p><strong>Total: $${totalStr}</strong></p>` +

@@ -17,7 +17,7 @@ content script overlay
    ▼ (via background worker)
    POST create-request ───────▶ create-request fn (service role)
                                   • insert pending row + token
-                                  • send email via Brevo ───────────▶ "Approve a purchase — $X"
+                                  • send email via Brevo ───────────▶ "Approve a purchase: $X"
    ◀── { id }                                                          link → decision page
    │
    │ poll get-status ◀──────── get-status fn
