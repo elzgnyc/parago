@@ -43,7 +43,21 @@ export function isPlaceOrderClick(ev, root = document) {
   return !!(ev.target && control.contains(ev.target));
 }
 
-const CONFIRM_SELECTORS = [
+// Is there a "place your order" affordance on this page at all? Deliberately wider
+// than findPlaceOrderControl: it also returns true when only the LABEL is present
+// (an element whose text/value/aria-label matches), so it still fires when Amazon's
+// button isn't in our clickable selector set. Used as the place-order INTENT signal
+// for the proactive block, which must not depend on recognizing a clickable control.
+export function hasPlaceOrderIntent(root = document) {
+  if (findPlaceOrderControl(root)) return true;
+  for (const el of root.querySelectorAll('input[type="submit"], button, a, [role="button"], span.a-button-text, [aria-label]')) {
+    const label = el.value || el.textContent || el.getAttribute('aria-label') || '';
+    if (PLACE_ORDER_TEXT_RE.test(label)) return true;
+  }
+  return false;
+}
+
+export const CONFIRM_SELECTORS = [
   '#widget-purchaseConfirmationStatus',
   '[data-testid="order-confirmation"]',
   '.a-box.osc-thank-you',

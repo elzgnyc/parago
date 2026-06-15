@@ -9,7 +9,7 @@ import { CONFIG } from '../config.js';
 import { shouldUseSupabase } from '../relay/selectRelay.js';
 import { RELAY_STATUS } from '../relay/relayClient.js';
 import { showOverlay, setOverlayStatus, removeOverlay } from './overlay.js';
-import { parseFinalOrderTotal, isPlaceOrderClick, findPlaceOrderControl } from '../lib/placeOrder.js';
+import { parseFinalOrderTotal, isPlaceOrderClick, findPlaceOrderControl, hasPlaceOrderIntent, CONFIRM_SELECTORS } from '../lib/placeOrder.js';
 import { buildSnapshot } from '../lib/orderSnapshot.js';
 import { createPlacementStore } from '../lib/placementStore.js';
 import { runPlacementCompletion } from './placementManager.js';
@@ -104,6 +104,9 @@ function teardown() {
 export function _resetForTest() {
   teardown();
   removeOverlay();
+  stopProactiveGuard();
+  proactiveDone = false;
+  proactivePending = false;
 }
 
 async function onApproved(total) {
@@ -232,26 +235,126 @@ export function needsHardBlockFallback(settings, root = document) {
   return findPlaceOrderControl(root) == null;              // recognized -> interceptor handles it
 }
 
-// Watch the checkout page; if it is a final place-order page we cannot intercept,
-// fall back to the old full-screen blocking overlay (engage) so nothing places
-// unreviewed. Re-checks on DOM mutations because the total/button can render late.
-function guardUnrecognizedCheckout(settings, pageIsCheckout) {
-  if (!pageIsCheckout) return;
-  const tryGuard = () => {
-    if (!needsHardBlockFallback(settings, document)) return false;
-    const { total, items } = evaluatePlaceOrder(settings, document);
-    engage(settings, { total, items });
-    return true;
-  };
-  if (tryGuard()) return;
-  const obs = new MutationObserver(() => { if (tryGuard()) obs.disconnect(); });
-  obs.observe(document.documentElement, { childList: true, subtree: true });
-  setTimeout(() => obs.disconnect(), 15000);
+// ── Proactive block ───────────────────────────────────────────────────────────
+// Amazon's checkout DOM and event model both shift over time: the current SPC
+// checkout submits the order on `pointerdown` and navigates before any `click`
+// fires, so a click interceptor never runs and the order places unreviewed. Rather
+// than depend on catching the exact gesture, we block PROACTIVELY — as soon as the
+// shopper is on a place-order page that needs approval we raise the approval overlay
+// up front and send the request, no click required. This is the durable guard; the
+// click interceptor above is a fast-path secondary on pages it doesn't cover.
+
+const CART_SNAPSHOT_KEY = 'parago_cart_snapshot';
+const SNAPSHOT_MAX_AGE_MS = 30 * 60 * 1000; // older carts aren't trusted for the email
+
+function pathname() {
+  return (typeof location !== 'undefined' && location.pathname) || '';
+}
+function isCheckoutLikeUrl() {
+  const p = pathname();
+  return /\/checkout\//.test(p) || /\/gp\/buy\//.test(p);
+}
+function isCartUrl() {
+  const p = pathname();
+  return /\/gp\/cart\//.test(p) || /\/cart\b/.test(p) || /\/checkout\/entry\/cart/.test(p);
+}
+// The order is already placed: never block (a lingering "Place your order" label on
+// the thank-you page must not false-fire and email the guardian about a done deal).
+function isConfirmationPage(root = document) {
+  if (/thankyou/i.test(pathname())) return true;
+  for (const sel of CONFIRM_SELECTORS) if (root.querySelector(sel)) return true;
+  return false;
 }
 
-function isCheckoutPage() {
-  const p = (typeof location !== 'undefined' && location.pathname) || '';
-  return /\/gp\/buy\//.test(p) || /\/checkout/.test(p);
+// Are we on a page where an order can be placed and that the guard must cover? Uses
+// place-order INTENT (a control OR the label text), so it fires even when Amazon's
+// button isn't in our clickable selector set — exactly the case that broke the click
+// interceptor. Exported for tests.
+export function isPlaceOrderPage(root = document) {
+  if (!isCheckoutLikeUrl()) return false;
+  if (isConfirmationPage(root)) return false;
+  return hasPlaceOrderIntent(root);
+}
+
+function aParagoOverlayShown() {
+  return !!(document.getElementById('parago-guardian-overlay') ||
+            document.getElementById('parago-placement-overlay'));
+}
+
+function loadCartSnapshot() {
+  return new Promise((resolve) => {
+    try {
+      chrome.storage.local.get({ [CART_SNAPSHOT_KEY]: null }, (d) => resolve(d[CART_SNAPSHOT_KEY] || null));
+    } catch (e) { resolve(null); }
+  });
+}
+// Cart items/total don't parse on the SPC place-order page (different DOM), so the
+// guardian email would otherwise be empty. Stash the cart while on the cart page and
+// reuse it at block time so the request shows what is actually being bought.
+function stashCart(root = document) {
+  try {
+    if (typeof chrome === 'undefined' || !chrome.storage) return;
+    const parsed = parseCart(root);
+    if (parsed.items && parsed.items.length) {
+      chrome.storage.local.set({ [CART_SNAPSHOT_KEY]: { total: parsed.total, items: parsed.items, at: Date.now() } });
+    }
+  } catch (e) { /* no-op */ }
+}
+async function bestKnownPurchase(root = document) {
+  const finalTotal = parseFinalOrderTotal(root);
+  const parsed = parseCart(root);
+  let total = finalTotal != null ? finalTotal : parsed.total;
+  let items = (parsed.items && parsed.items.length) ? parsed.items : [];
+  if (!items.length || total == null) {
+    const snap = await loadCartSnapshot();
+    if (snap && (Date.now() - (snap.at || 0) < SNAPSHOT_MAX_AGE_MS)) {
+      if (!items.length) items = snap.items || [];
+      if (total == null && snap.total != null) total = snap.total;
+    }
+  }
+  return { total, items };
+}
+
+let proactiveDone = false;
+let proactivePending = false;
+let proactiveObs = null;
+
+function stopProactiveGuard() {
+  if (proactiveObs) { try { proactiveObs.disconnect(); } catch (e) { /* no-op */ } proactiveObs = null; }
+}
+
+// Decide and, if needed, raise the proactive block. Async because it reads the cart
+// snapshot and the hold decision can depend on it. Idempotent via the two flags so a
+// burst of DOM mutations can't engage twice or submit duplicate approval requests.
+async function engageProactive(settings, root = document) {
+  if (proactiveDone || proactivePending) return proactiveDone;
+  if (aParagoOverlayShown()) return false; // a placement/guardian overlay already owns the screen
+  proactivePending = true;
+  try {
+    const { total, items } = await bestKnownPurchase(root);
+    if (!shouldRequireApproval(settings, total)) return false; // known and under the limit: let it through
+    proactiveDone = true;
+    engage(settings, { total, items });
+    return true;
+  } finally {
+    proactivePending = false;
+  }
+}
+
+function startProactiveGuard(settings) {
+  const check = () => {
+    if (proactiveDone) { stopProactiveGuard(); return; }
+    if (aParagoOverlayShown()) return;       // an approved-order placement (or our overlay) owns the page
+    if (!isPlaceOrderPage(document)) return;
+    engageProactive(settings, document).then((done) => { if (done) stopProactiveGuard(); });
+  };
+  check();
+  // Re-check as the SPA renders / route-transitions: the place-order page is reached
+  // via pushState and the button can render late. No fixed timeout — a slow checkout
+  // must stay guarded. Cheap: a URL regex + one querySelector per mutation burst.
+  proactiveObs = new MutationObserver(check);
+  proactiveObs.observe(document.documentElement, { childList: true, subtree: true });
+  if (typeof window !== 'undefined') window.addEventListener('popstate', check);
 }
 
 export async function run() {
@@ -259,14 +362,21 @@ export async function run() {
   setLang(settings.lang);
   relay = buildRelay(settings);
 
-  // Stage 3: finish any approved order from a previous visit (runs on every page).
-  await runPlacementCompletion({ relay });
+  if (isCartUrl()) stashCart(document); // capture the cart for the guardian email before checkout
 
-  if (settings.guardianMode === 'off') return;
+  // Arm the click interceptor BEFORE completion so a throw inside completion can't
+  // skip arming. (guardianMode 'off' arms nothing but still finishes prior orders.)
+  if (settings.guardianMode !== 'off') armPlaceOrderIntercept(settings);
 
-  // Stage 1: arm the place-order interception (the cart page no longer blocks; the
-  // gate is the place-order click), plus a fail-closed hard-block for any checkout
-  // page whose place-order button we cannot recognize.
-  armPlaceOrderIntercept(settings);
-  guardUnrecognizedCheckout(settings, isCheckoutPage());
+  // Finish any approved order from a previous visit (may raise the placement overlay).
+  // Wrapped: a throw here must not tear down the guards.
+  try {
+    await runPlacementCompletion({ relay });
+  } catch (e) {
+    console.error('[parago] runPlacementCompletion failed:', e);
+  }
+
+  // Start the proactive guard AFTER completion so it observes any placement overlay an
+  // approved-order completion raised, and never races or duplicates it.
+  if (settings.guardianMode !== 'off') startProactiveGuard(settings);
 }
