@@ -152,21 +152,29 @@ input.switch:focus-visible { box-shadow: 0 0 0 3px var(--accent-tint); }
 }
 .saved { color: var(--accent-strong); font-weight: 700; min-height: 1.4rem; }
 
-/* Popup protection status */
-.status {
-  display: flex; align-items: center; gap: 10px;
-  margin: 0 0 14px;
-  font-weight: 600; font-size: 1.05rem;
-  background: var(--surface); border: 1px solid var(--line);
-  border-radius: var(--radius-sm); padding: 13px 14px;
+/* Popup power toggle (uBlock-style on/off). The single control for turning the
+   search filter on or off; no persistent toolbar badge. */
+.power {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 12px; margin: 6px 0 20px;
 }
-.status::before {
-  content: ""; flex: 0 0 auto;
-  width: 12px; height: 12px; border-radius: 50%;
-  background: var(--accent); box-shadow: 0 0 0 4px var(--accent-tint);
+.power-btn {
+  width: 96px; height: 96px; border-radius: 50%;
+  border: 0; cursor: pointer;
+  display: grid; place-items: center;
+  color: #fff; background: var(--accent);
+  box-shadow: var(--shadow), inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+  transition: background 0.15s, transform 0.05s, box-shadow 0.15s;
 }
-.status.is-off { color: var(--ink-soft); }
-.status.is-off::before { background: #b9b0a2; box-shadow: 0 0 0 4px #efe9df; }
+.power-btn:hover { background: var(--accent-strong); }
+.power-btn:active { transform: translateY(1px); }
+.power-btn:focus-visible { outline: 3px solid var(--accent-tint); outline-offset: 3px; }
+.power-btn.is-off { background: #c7bdae; }
+.power-icon { fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; }
+.power-status { margin: 0; font-weight: 700; font-size: 1.1rem; }
+.power-status.is-off { color: var(--ink-soft); }
+
+.btn-block { width: 100%; }
 
 /* Pending approvals */
 #pending { margin-top: 2px; }

@@ -2,6 +2,7 @@ export const DEFAULTS = {
   minStars: 3.5,        // flag items rated below this
   minRatings: 5,        // flag items with this many ratings or fewer
   mode: 'grey',         // 'grey' | 'hide' | 'off'
+  preferredMode: 'grey',// remembers grey-vs-hide so the popup power toggle can restore it after 'off'
   hideSponsored: true,
   flagLowRating: true,
   flagFewRatings: true,

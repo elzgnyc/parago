@@ -50,34 +50,5 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   return false;
 });
 
-// Persistent "running" indicator. A green badge on the toolbar icon on EVERY site,
-// so Parago visibly shows it is active even when you are not on Amazon. The badge
-// is a global action badge (no tabId), so it persists across pages and survives the
-// service worker sleeping. It reflects whether any protection is on (search filter
-// or guardian approval); when everything is off, the badge is cleared.
-const BADGE_DEFAULTS = { mode: 'grey', guardianMode: 'off' };
-
-function paragoIsActive(s) {
-  return (s.mode && s.mode !== 'off') || (s.guardianMode && s.guardianMode !== 'off');
-}
-
-function updateBadge() {
-  chrome.storage.sync.get(BADGE_DEFAULTS, (got) => {
-    const s = (chrome.runtime && chrome.runtime.lastError) ? BADGE_DEFAULTS : got;
-    if (paragoIsActive(s)) {
-      chrome.action.setBadgeBackgroundColor({ color: '#1f8a4c' });
-      if (chrome.action.setBadgeTextColor) chrome.action.setBadgeTextColor({ color: '#ffffff' });
-      chrome.action.setBadgeText({ text: '●' });
-      chrome.action.setTitle({ title: 'Parago: protection on' });
-    } else {
-      chrome.action.setBadgeText({ text: '' });
-      chrome.action.setTitle({ title: 'Parago: protection off' });
-    }
-  });
-}
-
-chrome.runtime.onInstalled.addListener(updateBadge);
-chrome.runtime.onStartup.addListener(updateBadge);
-chrome.storage.onChanged.addListener((changes, area) => { if (area === 'sync') updateBadge(); });
-// Set it as soon as the service worker wakes.
-updateBadge();
+// No toolbar badge. Protection on/off is shown only in the popup power toggle, so the
+// toolbar icon stays plain (the persistent green badge was removed by request).

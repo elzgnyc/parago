@@ -1,6 +1,7 @@
-import { getSettings } from '../settings/storage.js';
+import { getSettings, setSettings, onSettingsChanged } from '../settings/storage.js';
 import { setLang, t } from '../i18n/i18n.js';
 import { MockRelay } from '../relay/mockRelay.js';
+import { nextModePatch } from '../lib/protectionToggle.js';
 
 const relay = new MockRelay();
 
@@ -53,6 +54,26 @@ async function refresh() {
   renderPending(await relay.listPending());
 }
 
+// Reflect protection state on the power button. "On" means the search filter is doing
+// something (mode is not 'off'); the toggle controls the filter only, never guardian.
+function renderPower(settings) {
+  const on = settings.mode !== 'off';
+  const btn = document.getElementById('power');
+  btn.setAttribute('aria-pressed', String(on));
+  btn.classList.toggle('is-off', !on);
+  const statusEl = document.getElementById('status');
+  statusEl.textContent = on ? t('popup_status_on') : t('popup_status_off');
+  statusEl.classList.toggle('is-off', !on);
+}
+
+// uBlock-style power button: flip the display mode between 'off' and the last non-off
+// mode (see nextModePatch). preferredMode remembers grey-vs-hide so turning protection
+// back on restores the user's choice.
+async function togglePower() {
+  await setSettings(nextModePatch(await getSettings()));
+  renderPower(await getSettings());
+}
+
 async function main() {
   const settings = await getSettings();
   setLang(settings.lang);
@@ -60,10 +81,12 @@ async function main() {
   for (const el of document.querySelectorAll('[data-i18n]')) {
     el.textContent = t(el.getAttribute('data-i18n'));
   }
-  const on = settings.mode !== 'off';
-  const statusEl = document.getElementById('status');
-  statusEl.textContent = on ? t('popup_status_on') : t('popup_status_off');
-  statusEl.classList.toggle('is-off', !on);
+  const power = document.getElementById('power');
+  power.setAttribute('aria-label', t('popup_toggle_aria'));
+  power.addEventListener('click', togglePower);
+  renderPower(settings);
+  // Reflect changes made elsewhere (e.g. the Options page) while the popup is open.
+  onSettingsChanged(() => getSettings().then(renderPower));
   document.getElementById('openSettings').addEventListener('click', () => {
     chrome.runtime.openOptionsPage();
   });
