@@ -40,23 +40,6 @@
 #parago-dev-bar .parago-dev-bar-btn:hover { background: rgba(255,255,255,.22); }
 #parago-dev-bar .parago-dev-bar-btn.close { background: #b23b3b; border-color: #b23b3b; }
 
-/* Fake buy buttons injected into cart / checkout pages: a full-width green pill
-   the same size as Amazon's yellow button, placed directly under it. */
-.parago-fake-wrap { font-family: system-ui, sans-serif; }
-.parago-fake-wrap.inline { margin: 8px 0 0; }
-.parago-fake-wrap.fixed {
-  position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
-  z-index: 2147483000; width: min(320px, 90vw); background: #fff; padding: 8px;
-  border: 1px solid #d4d8cf; border-radius: 14px; box-shadow: 0 8px 30px rgba(0,0,0,.18);
-}
-.parago-fake-btn {
-  display: block; width: 100%; box-sizing: border-box; cursor: pointer;
-  font-size: 15px; font-weight: 600; color: #fff; text-align: center;
-  padding: 11px 18px; border-radius: 100px; border: 1px solid #1a7a42;
-  background: #1f8a4c;
-}
-.parago-fake-btn:hover { background: #1a7a42; }
-
 /* Toast for the test-email result. */
 #parago-dev-toast {
   position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%) translateY(20px);

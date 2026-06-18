@@ -2,7 +2,7 @@
 # Set project_id to your project ref (the SAME value used in src/config.js and
 # the manifest.json host permission). If you already ran `supabase init`, merge
 # the [functions.*] blocks below into your existing config.toml instead.
-project_id = "your-project-ref"
+project_id = "khckmoyvuzkjnuvyzjzx"
 
 # These Edge Functions are intentionally PUBLIC (uncredentialed): the extension
 # sends no auth header, and the guardian's approval link is a bare browser

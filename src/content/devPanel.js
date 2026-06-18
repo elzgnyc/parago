@@ -10,7 +10,6 @@ import {
   showProcessing, showFinishing, showConfirmed, showCouldNotComplete,
   showManualFallback, showOrderChanged, removePlacementOverlay,
 } from './placementOverlay.js';
-import { findPlaceOrderControl } from '../lib/placeOrder.js';
 import { SupabaseRelay } from '../relay/supabaseRelay.js';
 import { shouldUseSupabase } from '../relay/selectRelay.js';
 import { CONFIG } from '../config.js';
@@ -30,19 +29,6 @@ function currentCart() {
 const PANEL_ID = 'parago-dev-panel';
 const BAR_ID = 'parago-dev-bar';
 const TOAST_ID = 'parago-dev-toast';
-const FAKE_CART_ID = 'parago-fake-cart';
-const FAKE_CHECKOUT_ID = 'parago-fake-checkout';
-
-// Amazon's real "Proceed to checkout" control, used only to anchor the fake
-// button next to it when a real cart is present.
-const CART_PTC_SELECTORS = [
-  '#sc-buy-box-ptc-button input', '#hlb-ptc-btn-native',
-  'input[name="proceedToRetailCheckout"]', '#sc-proceed-to-checkout-action',
-  '#sc-buy-box-ptc-button',
-];
-
-function isCartPage() { return /(\/gp\/cart\/|\/cart\b)/i.test(location.pathname); }
-function isCheckoutPage() { return /(\/gp\/buy\/|\/checkout\b)/i.test(location.pathname); }
 
 let currentSettings = null;
 
@@ -149,66 +135,6 @@ async function sendTestEmail() {
   }
 }
 
-// The outer button "block" Amazon wraps its control in, so the fake pill can be
-// inserted directly under it at the same full width.
-function buttonBlock(anchor) {
-  return anchor.closest(
-    '#sc-buy-box-ptc-button, #hlb-ptc-btn-native, #placeYourOrder, ' +
-    '#submitOrderButtonId, #bottomSubmitOrderButtonId, .a-button-stack, span.a-button, .a-button'
-  ) || anchor;
-}
-
-// A fake, full-width green pill matching the size of Amazon's yellow buy button,
-// inserted directly UNDER the real one. Green (not yellow) so it is never mistaken
-// for the real control. Falls back to a fixed banner when no real button exists
-// (e.g. an empty cart), so it always shows.
-function fakeButton(id, label, onClick, anchorEl) {
-  const old = document.getElementById(id);
-  if (old) old.remove();
-  const wrap = el('div', 'parago-fake-wrap'); wrap.id = id;
-  const btn = el('button', 'parago-fake-btn', label);
-  btn.type = 'button';
-  btn.addEventListener('click', onClick);
-  wrap.appendChild(btn);
-
-  const block = anchorEl ? buttonBlock(anchorEl) : null;
-  if (block && block.parentElement) {
-    wrap.classList.add('inline');
-    block.parentElement.insertBefore(wrap, block.nextSibling); // directly under
-  } else {
-    wrap.classList.add('fixed');
-    document.body.appendChild(wrap);
-  }
-  return wrap;
-}
-
-function firstMatch(selectors) {
-  for (const sel of selectors) {
-    const e = document.querySelector(sel);
-    if (e) return e;
-  }
-  return null;
-}
-
-// Cart page: a "Proceed to checkout" that opens the approval-hold overlay (a
-// guardian-required cart blocks here). Checkout page: a "Place your order" that
-// runs the place-order hold screens. Both use the fake cart; nothing is bought.
-function injectContextButtons() {
-  if (isCartPage()) {
-    fakeButton(FAKE_CART_ID, 'Proceed to checkout', demoApproval, firstMatch(CART_PTC_SELECTORS));
-  }
-  if (isCheckoutPage()) {
-    fakeButton(FAKE_CHECKOUT_ID, 'Place your order', demoPlaceOrder, findPlaceOrderControl(document));
-  }
-}
-
-function removeContextButtons() {
-  for (const id of [FAKE_CART_ID, FAKE_CHECKOUT_ID]) {
-    const e = document.getElementById(id);
-    if (e) e.remove();
-  }
-}
-
 function buildPanel() {
   const panel = el('div'); panel.id = PANEL_ID;
   const head = el('div', 'parago-dev-head');
@@ -245,7 +171,6 @@ function injectPanel() {
 
 function removePanel() {
   endDemo();
-  removeContextButtons();
   const p = document.getElementById(PANEL_ID);
   if (p) p.remove();
   const t = document.getElementById(TOAST_ID);
@@ -254,7 +179,7 @@ function removePanel() {
 
 function apply(settings) {
   currentSettings = settings;
-  if (settings.devMode) { injectPanel(); injectContextButtons(); }
+  if (settings.devMode) injectPanel();
   else removePanel();
 }
 

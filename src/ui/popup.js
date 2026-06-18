@@ -2,6 +2,8 @@ import { getSettings, setSettings, onSettingsChanged } from '../settings/storage
 import { setLang, t } from '../i18n/i18n.js';
 import { MockRelay } from '../relay/mockRelay.js';
 import { nextModePatch } from '../lib/protectionToggle.js';
+import { shouldUseSupabase } from '../relay/selectRelay.js';
+import { CONFIG } from '../config.js';
 
 const relay = new MockRelay();
 
@@ -90,8 +92,21 @@ async function main() {
   document.getElementById('openSettings').addEventListener('click', () => {
     chrome.runtime.openOptionsPage();
   });
-  await refresh();
-  relay.onChange(() => refresh());
+
+  // The local approve/reject list only makes sense for LOCAL (MockRelay) approval. With
+  // email/Supabase approval the guardian decides by email, so a local "waiting" list here
+  // is stale and confusing — keep the section hidden in that mode.
+  if (!shouldUseSupabase(settings, CONFIG)) {
+    const section = document.getElementById('pendingSection');
+    if (section) section.hidden = false;
+    await refresh();
+    relay.onChange(() => refresh());
+  } else {
+    // Email/Supabase approval is configured: the guardian decides by email, so the local
+    // MockRelay list is legacy. Prune any stale local requests so they can't reappear, and
+    // leave the section hidden.
+    try { chrome.storage.local.remove('parago_requests'); } catch (e) { /* no-op */ }
+  }
 }
 
 main();

@@ -9,15 +9,19 @@ import { CONFIG } from '../config.js';
 import { shouldUseSupabase } from '../relay/selectRelay.js';
 import { RELAY_STATUS } from '../relay/relayClient.js';
 import { showOverlay, setOverlayStatus, removeOverlay } from './overlay.js';
-import { parseFinalOrderTotal, isPlaceOrderClick, findPlaceOrderControl, hasPlaceOrderIntent, CONFIRM_SELECTORS } from '../lib/placeOrder.js';
-import { buildSnapshot } from '../lib/orderSnapshot.js';
-import { createPlacementStore } from '../lib/placementStore.js';
-import { runPlacementCompletion } from './placementManager.js';
-import { showProcessing, showCouldNotComplete } from './placementOverlay.js';
+import { parseFinalOrderTotal, isPlaceOrderClick, findPlaceOrderControl } from '../lib/placeOrder.js';
 import { consumeSuppress } from './interceptGuard.js';
 
 const APPROVALS_KEY = 'parago_approvals';
+const OUTSTANDING_KEY = 'parago_outstanding';
 const TOTAL_EPSILON = 0.005;
+
+// Where the shopper is sent after a purchase is held for approval: back to amazon.com
+// to keep shopping. The order is NOT placed and is NOT queued to place automatically —
+// guardian approval only UNLOCKS the gate so the shopper's own next click goes through.
+const SHOP_URL = 'https://www.amazon.com/';
+let navigate = (url) => { try { window.location.assign(url); } catch (e) { /* jsdom: no-op */ } };
+export function _setNavigateForTest(fn) { navigate = fn; }
 
 // Relay is swappable. Built from settings in run() (see buildRelay). Tests may
 // override via the exported setter.
@@ -75,6 +79,21 @@ function saveApprovals(list) {
   });
 }
 
+// Outstanding requests awaiting a guardian decision: [{ id, total, createdAt }]. Stored
+// across navigation so that when the shopper returns, reconcileApprovals can look each
+// one up and, if approved, unlock that total. This is the notify-only alternative to
+// auto-placing: nothing is ever bought without a fresh human click.
+function getOutstanding() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get({ [OUTSTANDING_KEY]: [] }, (d) => resolve(d[OUTSTANDING_KEY] || []));
+  });
+}
+function saveOutstanding(list) {
+  return new Promise((resolve) => {
+    chrome.storage.local.set({ [OUTSTANDING_KEY]: list }, () => resolve());
+  });
+}
+
 function totalsMatch(a, b) {
   return a != null && b != null && !Number.isNaN(a) && !Number.isNaN(b) && Math.abs(a - b) < TOTAL_EPSILON;
 }
@@ -100,13 +119,17 @@ function teardown() {
   activeRequestId = null;
 }
 
-// Test-only: reset module state + overlay between tests.
+// Test-only: reset module state + overlay + listeners between tests.
 export function _resetForTest() {
   teardown();
   removeOverlay();
-  stopProactiveGuard();
-  proactiveDone = false;
-  proactivePending = false;
+  armedSettings = null;
+  armedApprovals = [];
+  pressHandled = false;
+  if (typeof document !== 'undefined') {
+    document.removeEventListener('pointerdown', onPlaceOrderPress, true);
+    document.removeEventListener('click', onPlaceOrderPress, true);
+  }
 }
 
 async function onApproved(total) {
@@ -121,13 +144,12 @@ async function onApproved(total) {
   setTimeout(removeOverlay, 1200);
 }
 
+// The blocking guardian overlay. No longer raised on the checkout pages (a held order
+// now redirects the shopper to amazon.com instead); kept for the Developer-mode demo and
+// as a fail-closed, tested building block.
 export async function engage(settings, parsed) {
   const onCancel = () => { try { history.back(); } catch (e) { /* no-op */ } };
 
-  // Paint the blocking overlay BEFORE any relay round-trip. With a remote relay,
-  // listPending/submitRequest/getRequest are network calls; gating the overlay
-  // behind them left the cart usable (and looked like a pause) during that
-  // latency. Show 'pending' immediately, then resolve the request and update.
   showOverlay({ items: parsed.items, total: parsed.total, guardianName: settings.guardianName, status: 'pending', onCancel });
 
   let req = null;
@@ -153,8 +175,6 @@ export async function engage(settings, parsed) {
   const effTotal = parsed.total != null ? parsed.total : req.total;
   const items = parsed.items && parsed.items.length ? parsed.items : (req.items || []);
 
-  // Repaint only if the relay filled in a total/items the page couldn't parse;
-  // otherwise just flip the status, to avoid a flicker.
   if (parsed.total == null || !(parsed.items && parsed.items.length)) {
     showOverlay({ items, total: effTotal, guardianName: settings.guardianName, status: req.status, onCancel });
   } else {
@@ -172,19 +192,6 @@ export async function engage(settings, parsed) {
   });
 }
 
-async function waitForTotal(maxMs = 3000, stepMs = 300) {
-  let parsed = parseCart(document);
-  let waited = 0;
-  while (parsed.total == null && waited < maxMs) {
-    await new Promise((r) => setTimeout(r, stepMs));
-    waited += stepMs;
-    parsed = parseCart(document);
-  }
-  return parsed;
-}
-
-const placements = createPlacementStore();
-
 // Decide, at place-order time, whether this purchase needs a hold. Uses the FINAL
 // order total on the checkout page (includes shipping + tax) and falls back to the
 // cart parse. Fail-closed via shouldRequireApproval for unknown totals in over_limit.
@@ -195,91 +202,16 @@ export function evaluatePlaceOrder(settings, root = document) {
   return { hold: shouldRequireApproval(settings, total), total, items: parsed.items };
 }
 
-let armedSettings = null;
-async function onPlaceOrderClickCapture(ev) {
-  if (!armedSettings) return;
-  if (consumeSuppress()) return; // our own programmatic placement click: let it through
-  if (!isPlaceOrderClick(ev, document)) return;
-  const { hold, total, items } = evaluatePlaceOrder(armedSettings, document);
-  if (!hold) return; // under limit / off: let Amazon place it normally
-  ev.preventDefault();
-  ev.stopImmediatePropagation();
-  showProcessing(); // blocking success screen prevents a second submit
-  try {
-    const enriched = await enrichItems(items);
-    const id = await relay.submitRequest({ total, items: enriched });
-    await placements.put(id, {
-      snapshot: buildSnapshot({ items, total }, Date.now()),
-      status: 'pending', createdAt: Date.now(), placedAt: null, lastError: null,
-    });
-  } catch (e) {
-    // Fail closed: the order was NOT placed (we preventDefault'd). Tell the shopper.
-    showCouldNotComplete();
-  }
-}
-
-export function armPlaceOrderIntercept(settings) {
-  armedSettings = settings;
-  // Capture phase so we run before Amazon's own submit handler.
-  document.addEventListener('click', onPlaceOrderClickCapture, true);
-}
-
-// Fail closed: are we on a final place-order page that needs approval but whose
-// place-order control we cannot recognize? The click interceptor can only catch a
-// button it can find, so if the button is unrecognized an un-intercepted click would
-// place the order with no approval. In that case the caller must hard-block instead.
-export function needsHardBlockFallback(settings, root = document) {
-  if (parseFinalOrderTotal(root) == null) return false;   // not the final order page
-  const { hold } = evaluatePlaceOrder(settings, root);
-  if (!hold) return false;                                 // no approval needed
-  return findPlaceOrderControl(root) == null;              // recognized -> interceptor handles it
-}
-
-// ── Proactive block ───────────────────────────────────────────────────────────
-// Amazon's checkout DOM and event model both shift over time: the current SPC
-// checkout submits the order on `pointerdown` and navigates before any `click`
-// fires, so a click interceptor never runs and the order places unreviewed. Rather
-// than depend on catching the exact gesture, we block PROACTIVELY — as soon as the
-// shopper is on a place-order page that needs approval we raise the approval overlay
-// up front and send the request, no click required. This is the durable guard; the
-// click interceptor above is a fast-path secondary on pages it doesn't cover.
-
-const CART_SNAPSHOT_KEY = 'parago_cart_snapshot';
-const SNAPSHOT_MAX_AGE_MS = 30 * 60 * 1000; // older carts aren't trusted for the email
-
 function pathname() {
   return (typeof location !== 'undefined' && location.pathname) || '';
-}
-function isCheckoutLikeUrl() {
-  const p = pathname();
-  return /\/checkout\//.test(p) || /\/gp\/buy\//.test(p);
 }
 function isCartUrl() {
   const p = pathname();
   return /\/gp\/cart\//.test(p) || /\/cart\b/.test(p) || /\/checkout\/entry\/cart/.test(p);
 }
-// The order is already placed: never block (a lingering "Place your order" label on
-// the thank-you page must not false-fire and email the guardian about a done deal).
-function isConfirmationPage(root = document) {
-  if (/thankyou/i.test(pathname())) return true;
-  for (const sel of CONFIRM_SELECTORS) if (root.querySelector(sel)) return true;
-  return false;
-}
 
-// Are we on a page where an order can be placed and that the guard must cover? Uses
-// place-order INTENT (a control OR the label text), so it fires even when Amazon's
-// button isn't in our clickable selector set — exactly the case that broke the click
-// interceptor. Exported for tests.
-export function isPlaceOrderPage(root = document) {
-  if (!isCheckoutLikeUrl()) return false;
-  if (isConfirmationPage(root)) return false;
-  return hasPlaceOrderIntent(root);
-}
-
-function aParagoOverlayShown() {
-  return !!(document.getElementById('parago-guardian-overlay') ||
-            document.getElementById('parago-placement-overlay'));
-}
+const CART_SNAPSHOT_KEY = 'parago_cart_snapshot';
+const SNAPSHOT_MAX_AGE_MS = 30 * 60 * 1000; // older carts aren't trusted for the email
 
 function loadCartSnapshot() {
   return new Promise((resolve) => {
@@ -290,7 +222,7 @@ function loadCartSnapshot() {
 }
 // Cart items/total don't parse on the SPC place-order page (different DOM), so the
 // guardian email would otherwise be empty. Stash the cart while on the cart page and
-// reuse it at block time so the request shows what is actually being bought.
+// reuse it at request time so the email shows what is actually being bought.
 function stashCart(root = document) {
   try {
     if (typeof chrome === 'undefined' || !chrome.storage) return;
@@ -315,46 +247,124 @@ async function bestKnownPurchase(root = document) {
   return { total, items };
 }
 
-let proactiveDone = false;
-let proactivePending = false;
-let proactiveObs = null;
+// ── Place-order interception ────────────────────────────────────────────────────
+// The order is held only when the shopper actually presses "Place your order" — there
+// is no proactive page-load block. We bind on BOTH pointerdown and click (capture)
+// because Amazon's SPC checkout submits the order on pointerdown and navigates before a
+// click ever fires; catching the press at pointerdown is what lets us preventDefault in
+// time. On a held press we request approval and send the shopper back to amazon.com.
+let armedSettings = null;
+let armedApprovals = [];
+let pressHandled = false;
 
-function stopProactiveGuard() {
-  if (proactiveObs) { try { proactiveObs.disconnect(); } catch (e) { /* no-op */ } proactiveObs = null; }
+// One approval authorizes exactly one placement. Remove the first matching approval from
+// the in-memory armed list synchronously (so a repeat press in this same visit needs fresh
+// approval) and from storage (fire-and-forget: the let-through must proceed without an
+// await here). Matching tolerates the same epsilon as isApprovedForTotal.
+function consumeApproval(total) {
+  const matches = (a) => Math.abs(a.total - total) < TOTAL_EPSILON;
+  const i = armedApprovals.findIndex(matches);
+  if (i < 0) return;
+  armedApprovals = armedApprovals.slice(0, i).concat(armedApprovals.slice(i + 1));
+  getApprovals().then((list) => {
+    const j = list.findIndex(matches);
+    if (j >= 0) { list.splice(j, 1); return saveApprovals(list); }
+  }).catch(() => { /* fire-and-forget */ });
 }
 
-// Decide and, if needed, raise the proactive block. Async because it reads the cart
-// snapshot and the hold decision can depend on it. Idempotent via the two flags so a
-// burst of DOM mutations can't engage twice or submit duplicate approval requests.
-async function engageProactive(settings, root = document) {
-  if (proactiveDone || proactivePending) return proactiveDone;
-  if (aParagoOverlayShown()) return false; // a placement/guardian overlay already owns the screen
-  proactivePending = true;
+async function onPlaceOrderPress(ev) {
+  if (!armedSettings) return;
+  if (!isPlaceOrderClick(ev, document)) return;
+  if (consumeSuppress()) return; // a programmatic place click (if any) passes through
+  // Once we've taken a press this visit, block every later place-order press too, so a
+  // second tap during the request/redirect window can't reach Amazon unreviewed.
+  if (pressHandled) { ev.preventDefault(); ev.stopImmediatePropagation(); return; }
+
+  const finalTotal = parseFinalOrderTotal(document);
+  const parsed = parseCart(document);
+  const total = finalTotal != null ? finalTotal : parsed.total;
+
+  if (!shouldRequireApproval(armedSettings, total)) return; // under limit / off → let Amazon place
+
+  // Guardian already approved this exact total (recorded by reconcileApprovals on a
+  // prior visit): the gate is unlocked for ONE placement, so consume it and let the
+  // shopper's own click through. Single-use is the point — without consuming, an approved
+  // total would permanently unlock every future cart of that price (silent spend).
+  if (isApprovedForTotal(armedApprovals, total)) { consumeApproval(total); return; }
+
+  // Approval required and not yet granted. Block this submit (synchronously, before any
+  // await, so Amazon's own handler can't place it), request approval, then send the
+  // shopper back to shopping. The order is NOT placed and NOT auto-queued.
+  pressHandled = true;
+  ev.preventDefault();
+  ev.stopImmediatePropagation();
   try {
-    const { total, items } = await bestKnownPurchase(root);
-    if (!shouldRequireApproval(settings, total)) return false; // known and under the limit: let it through
-    proactiveDone = true;
-    engage(settings, { total, items });
-    return true;
-  } finally {
-    proactivePending = false;
+    const { items } = await bestKnownPurchase(document);
+    const outstanding = await getOutstanding();
+    if (!outstanding.some((o) => totalsMatch(o.total, total))) {
+      const enriched = await enrichItems(items);
+      const id = await relay.submitRequest({ total, items: enriched });
+      await saveOutstanding([...outstanding, { id, total, createdAt: Date.now() }]);
+    }
+  } catch (e) {
+    // Fail closed: we preventDefault'd, so the order was NOT placed. The request may not
+    // have been sent (offline); the shopper can retry. Nothing buys without approval.
+    console.error('[parago] approval request failed:', e);
   }
+  navigate(SHOP_URL);
 }
 
-function startProactiveGuard(settings) {
-  const check = () => {
-    if (proactiveDone) { stopProactiveGuard(); return; }
-    if (aParagoOverlayShown()) return;       // an approved-order placement (or our overlay) owns the page
-    if (!isPlaceOrderPage(document)) return;
-    engageProactive(settings, document).then((done) => { if (done) stopProactiveGuard(); });
-  };
-  check();
-  // Re-check as the SPA renders / route-transitions: the place-order page is reached
-  // via pushState and the button can render late. No fixed timeout — a slow checkout
-  // must stay guarded. Cheap: a URL regex + one querySelector per mutation burst.
-  proactiveObs = new MutationObserver(check);
-  proactiveObs.observe(document.documentElement, { childList: true, subtree: true });
-  if (typeof window !== 'undefined') window.addEventListener('popstate', check);
+export function armPlaceOrderIntercept(settings, approvals = []) {
+  armedSettings = settings;
+  armedApprovals = Array.isArray(approvals) ? approvals : [];
+  pressHandled = false;
+  // Capture phase so we run before Amazon's own submit handler.
+  document.addEventListener('pointerdown', onPlaceOrderPress, true);
+  document.addEventListener('click', onPlaceOrderPress, true);
+}
+
+// Fail closed: are we on a final place-order page that needs approval but whose
+// place-order control we cannot recognize? If the button is unrecognized, an
+// un-intercepted press would place the order with no approval.
+export function needsHardBlockFallback(settings, root = document) {
+  if (parseFinalOrderTotal(root) == null) return false;   // not the final order page
+  const { hold } = evaluatePlaceOrder(settings, root);
+  if (!hold) return false;                                 // no approval needed
+  return findPlaceOrderControl(root) == null;              // recognized -> interceptor handles it
+}
+
+// On return to a checkout/cart page, learn the outcome of any outstanding request and,
+// for approved ones, record the approval locally so the shopper's next "Place your order"
+// click goes through. Never places an order itself.
+export async function reconcileApprovals() {
+  const outstanding = await getOutstanding();
+  if (!outstanding.length) return;
+  let approvals = await getApprovals();
+  const stillPending = [];
+  let approvalsChanged = false;
+  for (const o of outstanding) {
+    let rec;
+    try {
+      rec = await relay.getRequest(o.id);
+    } catch (e) {
+      stillPending.push(o); // transient failure (offline/5xx): keep for next visit
+      continue;
+    }
+    if (!rec) continue; // not_found → drop
+    if (rec.status === RELAY_STATUS.APPROVED) {
+      if (!isApprovedForTotal(approvals, o.total)) {
+        approvals = recordApproval(approvals, o.total, Date.now());
+        approvalsChanged = true;
+      }
+      // drop from outstanding: approval is now recorded locally
+    } else if (rec.status === RELAY_STATUS.REJECTED) {
+      // drop: a retry will create a fresh request
+    } else {
+      stillPending.push(o); // still pending → keep watching
+    }
+  }
+  if (approvalsChanged) await saveApprovals(approvals);
+  await saveOutstanding(stillPending);
 }
 
 export async function run() {
@@ -364,19 +374,19 @@ export async function run() {
 
   if (isCartUrl()) stashCart(document); // capture the cart for the guardian email before checkout
 
-  // Arm the click interceptor BEFORE completion so a throw inside completion can't
-  // skip arming. (guardianMode 'off' arms nothing but still finishes prior orders.)
-  if (settings.guardianMode !== 'off') armPlaceOrderIntercept(settings);
-
-  // Finish any approved order from a previous visit (may raise the placement overlay).
-  // Wrapped: a throw here must not tear down the guards.
-  try {
-    await runPlacementCompletion({ relay });
-  } catch (e) {
-    console.error('[parago] runPlacementCompletion failed:', e);
+  if (settings.guardianMode !== 'off') {
+    // Arm the interceptor FIRST, with the approvals already on disk, so there is never a
+    // live-but-unarmed window where a place-order press could slip through unreviewed
+    // (reconcileApprovals is a network round-trip). Worst case before reconcile finishes:
+    // an already-approved total is briefly re-held (fail-closed), never auto-placed.
+    armPlaceOrderIntercept(settings, await getApprovals());
+    // Then learn the outcome of any prior request and refresh the armed approvals, so an
+    // approved total is recognized and the shopper's next click is let straight through.
+    try {
+      await reconcileApprovals();
+    } catch (e) {
+      console.error('[parago] reconcileApprovals failed:', e);
+    }
+    armedApprovals = await getApprovals();
   }
-
-  // Start the proactive guard AFTER completion so it observes any placement overlay an
-  // approved-order completion raised, and never races or duplicates it.
-  if (settings.guardianMode !== 'off') startProactiveGuard(settings);
 }
