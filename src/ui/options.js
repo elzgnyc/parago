@@ -277,14 +277,17 @@ function readForm() {
   return out;
 }
 
+// Debounced: every change is persisted immediately; this only shows "Saved" once,
+// after the user stops changing settings, so rapid clicks do not spam the bubble.
 function flash() {
-  const saved = document.getElementById('saved');
-  saved.textContent = t('saved');
-  saved.classList.remove('show');
-  void saved.offsetWidth;
-  saved.classList.add('show');
-  clearTimeout(flash._t);
-  flash._t = setTimeout(() => saved.classList.remove('show'), 1800);
+  clearTimeout(flash._debounce);
+  flash._debounce = setTimeout(() => {
+    const saved = document.getElementById('saved');
+    saved.textContent = t('saved');
+    saved.classList.add('show');
+    clearTimeout(flash._hide);
+    flash._hide = setTimeout(() => saved.classList.remove('show'), 2200);
+  }, 800);
 }
 
 async function save() {

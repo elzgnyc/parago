@@ -31,19 +31,15 @@ body {
 
 body.popup { width: 344px; padding: 18px; }
 body.options { padding: 40px 28px 56px; }
-.container { max-width: 900px; margin: 0 auto; }
+.container { max-width: 1180px; margin: 0 auto; }
 
 /* Options: pack the cards into two columns so the page fills the width instead of
    running as one tall column. break-inside keeps each card whole; falls back to a
    single column on narrow windows. */
-/* Two side-by-side columns. Cards are assigned to a column in the HTML (tall
-   Purchase-approval card on the left, the shorter cards stacked on the right), so
-   the page fills horizontally and expanding one card only grows its own column,
-   never re-balancing the whole page. */
-.cards { display: flex; gap: 20px; align-items: flex-start; }
-.col { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 20px; }
-.col > .card { margin-bottom: 0; }
-@media (max-width: 720px) { .cards { flex-direction: column; } }
+/* Each section is its own column, side by side, filling the width. Wraps to fewer
+   columns on narrow windows. */
+.cards { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
+.cards > .card { flex: 1 1 240px; margin-bottom: 0; }
 
 /* Brand header */
 .brand { display: flex; align-items: center; gap: 13px; margin-bottom: 22px; }
@@ -163,15 +159,16 @@ input.switch:focus-visible { box-shadow: 0 0 0 3px var(--accent-tint); }
   display: flex; align-items: center; justify-content: space-between;
   gap: 12px; margin-top: 4px;
 }
-/* Floating "Saved" pill: appears top-right on any change, visible wherever you scroll. */
+/* Floating "Saved" bubble, bottom-center. Debounced so it appears once when the
+   user stops changing settings, not on every click. */
 .saved {
-  position: fixed; top: 16px; right: 16px; z-index: 20;
-  background: var(--accent); color: #fff; font-weight: 700; font-size: 0.92rem;
-  padding: 8px 16px; border-radius: 999px; box-shadow: var(--shadow);
-  opacity: 0; transform: translateY(-6px); transition: opacity .18s, transform .18s;
-  pointer-events: none;
+  position: fixed; bottom: 20px; left: 50%; z-index: 20;
+  transform: translateX(-50%) translateY(8px);
+  background: var(--accent); color: #fff; font-weight: 500; font-size: 0.92rem;
+  padding: 9px 20px; border-radius: 999px; box-shadow: var(--shadow);
+  opacity: 0; transition: opacity .2s, transform .2s; pointer-events: none;
 }
-.saved.show { opacity: 1; transform: translateY(0); }
+.saved.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 .btn.is-armed { background: var(--danger); color: #fff; border-color: var(--danger); }
 
 /* Popup header: logo + name on the left, a compact protection switch + settings gear
@@ -298,8 +295,11 @@ input.switch:focus-visible { box-shadow: 0 0 0 3px var(--accent-tint); }
 /* Rating: number first (Amazon-style "4.5" then the stars) */
 .stars-control input[type="number"] { width: 72px; font-weight: 600; }
 
-/* Language card, small, at the end of the page */
+/* Language card, small, at the end of the page. Label + dropdown sit together
+   (not pushed apart like a toggle row). */
 .lang-card { max-width: 360px; margin-top: 2px; }
+.lang-card .field { justify-content: flex-start; gap: 12px; }
+.lang-select { width: auto; min-width: 170px; }
 
 /* Slide-in when a conditionally-shown control appears (method fields, spending
    limit, advanced controls, telegram states). Plays on display none -> shown. */

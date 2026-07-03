@@ -52,7 +52,7 @@ export const STRINGS = {
     filter_flag_heading: 'Flag items that are',
     filter_low: 'Low rated',
     filter_few: 'Few ratings',
-    filter_nonprime: 'Not on',
+    filter_nonprime: 'Not on Prime',
     filter_sponsored: 'Sponsored',
     filter_hover: 'Reveal greyed items when I hover',
     popup_status_on: 'Protection is on',
