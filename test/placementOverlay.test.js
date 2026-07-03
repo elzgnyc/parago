@@ -7,28 +7,33 @@ import {
 
 afterEach(() => { removePlacementOverlay(); document.body.innerHTML = ''; });
 
-describe('placementOverlay', () => {
-  it('shows processing as a non-blocking corner toast, not the blocking card', () => {
+describe('placementOverlay (all states are non-blocking corner toasts)', () => {
+  it('renders a state as a corner toast, not a full-page blocking overlay', () => {
     showProcessing();
-    // Processing is informational ("you can close this page"), so it is a corner
-    // toast, not the full-page blocking overlay the active-placement states use.
-    expect(isPlacementOverlayShown()).toBe(false);
+    expect(isPlacementOverlayShown()).toBe(true);
     expect(document.getElementById('parago-placement-toast')).not.toBeNull();
+    expect(document.querySelector('#parago-placement-overlay')).toBeNull(); // no blocking card
     expect(document.body.textContent).toContain('being processed');
   });
 
-  it('switching from the processing toast to a blocking state clears the toast', () => {
+  it('swaps states in place (one toast at a time)', () => {
     showProcessing();
     showConfirmed();
-    expect(document.getElementById('parago-placement-toast')).toBeNull();
-    expect(document.querySelectorAll('#parago-placement-overlay').length).toBe(1);
+    expect(document.querySelectorAll('#parago-placement-toast').length).toBe(1);
     expect(document.body.textContent).toContain('confirmed');
   });
 
-  it('manual fallback wires the button to the callback', () => {
+  it('finishing, confirmed, and failed each render as the toast', () => {
+    showFinishing();
+    expect(isPlacementOverlayShown()).toBe(true);
+    showCouldNotComplete();
+    expect(document.body.textContent).toContain("couldn't");
+  });
+
+  it('manual fallback wires the toast button to the callback', () => {
     let clicked = false;
     showManualFallback(() => { clicked = true; });
-    document.querySelector('.parago-pl-button').click();
+    document.querySelector('.parago-pl-toast-btn').click();
     expect(clicked).toBe(true);
   });
 

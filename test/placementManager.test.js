@@ -136,7 +136,7 @@ describe('runPlacementCompletion', () => {
       relay: relayWith({ id1: 'approved' }), store,
       nav: { toCheckout() {} }, pageKind: () => 'checkout', claim: deny, now: () => 1000,
     });
-    const btn = document.querySelector('.parago-pl-button');
+    const btn = document.querySelector('.parago-pl-toast-btn');
     expect(btn).not.toBeNull();
     btn.click();
     await Promise.resolve(); await Promise.resolve();
