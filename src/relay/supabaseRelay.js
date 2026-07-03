@@ -25,10 +25,12 @@ function bgSend(url, options) {
 }
 
 export class SupabaseRelay {
-  constructor({ baseUrl, guardianEmail, guardianName = null, send, store, pollMs } = {}) {
+  constructor({ baseUrl, guardianEmail, guardianName = null, deliveryMethod = 'email', telegramLinkCode = null, send, store, pollMs } = {}) {
     this.baseUrl = String(baseUrl || '').replace(/\/$/, '');
     this.guardianEmail = guardianEmail;
     this.guardianName = guardianName;
+    this.deliveryMethod = deliveryMethod;
+    this.telegramLinkCode = telegramLinkCode;
     this.send = send || bgSend;
     this.store = store || chromeStore();
     this.pollMs = pollMs || 3000;
@@ -38,7 +40,12 @@ export class SupabaseRelay {
     const body = await this.send(`${this.baseUrl}/create-request`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ total, items: items || [], guardianEmail: this.guardianEmail, guardianName: this.guardianName }),
+      body: JSON.stringify({
+        total, items: items || [],
+        deliveryMethod: this.deliveryMethod,
+        guardianEmail: this.guardianEmail, guardianName: this.guardianName,
+        telegramLinkCode: this.telegramLinkCode,
+      }),
     });
     const id = body && body.id;
     if (!id) throw new Error('create_request_no_id');

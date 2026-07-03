@@ -63,6 +63,8 @@ function buildRelay(settings) {
       baseUrl: resolveFunctionsBaseUrl(settings, CONFIG),
       guardianEmail: settings.guardianEmail,
       guardianName: settings.guardianName,
+      deliveryMethod: settings.deliveryMethod || 'email',
+      telegramLinkCode: settings.telegramLinkCode || null,
     });
   }
   return new MockRelay();

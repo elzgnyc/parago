@@ -14,15 +14,12 @@ export function resolveFunctionsBaseUrl(settings, config) {
 // gracefully. A malformed URL (e.g. a typo pasted into Options) also fails safe
 // here rather than reaching fetch, keeping the checkout gate fail-closed.
 export function shouldUseSupabase(settings, config) {
-  // Round one: only the 'email' delivery method has a working transport. Telegram
-  // is selectable in Options (it shows its coming-soon linking UI) but its send
-  // backend is not built yet, so a telegram selection must NOT use the email relay.
-  // Returning false here makes the call site fall back to local popup approval
-  // (MockRelay), keeping the checkout gate fail-closed. Generalize this per-method
-  // when the telegram transport lands.
-  const method = (settings && settings.deliveryMethod) || 'email';
-  if (method !== 'email') return false;
   const base = resolveFunctionsBaseUrl(settings, config);
   if (!/^https?:\/\//i.test(base) || base.includes('<PROJECT_REF>')) return false;
+  // Each delivery method needs its own target configured before we route to the
+  // remote relay; otherwise fall back to local popup approval (MockRelay), keeping
+  // the checkout gate fail-closed.
+  const method = (settings && settings.deliveryMethod) || 'email';
+  if (method === 'telegram') return !!(settings && settings.telegramLinked);
   return !!(settings && settings.guardianEmail && settings.guardianEmail.trim());
 }

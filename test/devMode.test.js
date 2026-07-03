@@ -10,7 +10,7 @@ describe('developer mode', () => {
 
   it('email is the default delivery method, with telegram config keys present but empty', () => {
     expect(DEFAULTS.deliveryMethod).toBe('email');
-    expect(DEFAULTS.telegramChatId).toBe('');
+    expect(DEFAULTS.telegramLinkCode).toBe('');
     expect(DEFAULTS.telegramLinked).toBe(false);
   });
 

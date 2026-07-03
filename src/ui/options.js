@@ -1,5 +1,7 @@
 import { getSettings, setSettings, DEFAULTS } from '../settings/storage.js';
 import { setLang, t } from '../i18n/i18n.js';
+import { CONFIG } from '../config.js';
+import { resolveFunctionsBaseUrl } from '../relay/selectRelay.js';
 
 const fields = [
   'lang', 'minStars', 'minRatings', 'mode',
@@ -15,6 +17,64 @@ function applyMethodVisibility(method) {
   for (const el of document.querySelectorAll('[data-method]')) {
     el.hidden = el.getAttribute('data-method') !== method;
   }
+  if (method !== 'telegram') stopTgPoll(); // no need to poll link-status off the telegram tab
+}
+
+// ── Telegram linking ────────────────────────────────────────────────────────────
+// The install holds an opaque code; the guardian binds it to their chat by tapping
+// t.me/<bot>?start=<code> and pressing Start. We fetch the bot username from the
+// webhook, show the deep link, and poll link-status until the guardian connects.
+function genLinkCode() {
+  const b = new Uint8Array(24);
+  crypto.getRandomValues(b);
+  return btoa(String.fromCharCode(...b)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+let tgPoll = null;
+function stopTgPoll() { if (tgPoll) { clearInterval(tgPoll); tgPoll = null; } }
+function tgStatus(msg) {
+  const el = document.getElementById('tgLinkStatus');
+  if (el) el.textContent = msg;
+}
+
+async function setupTelegramLink() {
+  const settings = await getSettings();
+  const base = resolveFunctionsBaseUrl(settings, CONFIG);
+  if (!/^https?:\/\//i.test(base) || base.includes('<PROJECT_REF>')) {
+    tgStatus(t('tg_need_backend'));
+    return;
+  }
+  let code = settings.telegramLinkCode;
+  if (!code) { code = genLinkCode(); await setSettings({ telegramLinkCode: code }); }
+
+  tgStatus(t('tg_fetching'));
+  let username = null;
+  try {
+    const r = await fetch(`${base}/telegram-webhook?action=info`);
+    const j = await r.json();
+    username = j && j.username;
+  } catch (e) { /* handled below */ }
+  if (!username) { tgStatus(t('tg_unreachable')); return; }
+
+  const url = `https://t.me/${username}?start=${encodeURIComponent(code)}`;
+  const a = document.getElementById('tgLinkUrl');
+  if (a) { a.href = url; a.textContent = url; }
+  const area = document.getElementById('tgLinkArea');
+  if (area) area.hidden = false;
+  tgStatus(t('tg_waiting'));
+
+  stopTgPoll();
+  tgPoll = setInterval(async () => {
+    try {
+      const r = await fetch(`${base}/telegram-webhook?action=link-status&code=${encodeURIComponent(code)}`);
+      const j = await r.json();
+      if (j && j.linked) {
+        stopTgPoll();
+        await setSettings({ telegramLinked: true });
+        tgStatus(t('tg_connected'));
+      }
+    } catch (e) { /* transient: keep polling */ }
+  }, 3000);
 }
 
 const SVGNS = 'http://www.w3.org/2000/svg';
@@ -125,6 +185,7 @@ function load(settings) {
   document.getElementById('functionsBaseUrl').value = settings.functionsBaseUrl || '';
   document.getElementById('devMode').checked = settings.devMode;
   applyMethodVisibility(settings.deliveryMethod || 'email');
+  if (settings.telegramLinked) tgStatus(t('tg_connected'));
   setLang(settings.lang);
   applyI18n();
   renderStars(settings.minStars);
@@ -186,6 +247,7 @@ async function main() {
     document.getElementById(id).addEventListener('change', save);
   }
   document.getElementById('reset').addEventListener('click', resetDefaults);
+  document.getElementById('tgLinkBtn').addEventListener('click', setupTelegramLink);
 }
 
 main();

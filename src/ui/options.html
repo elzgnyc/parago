@@ -109,7 +109,12 @@
       </div>
 
       <div data-method="telegram">
-        <p class="field-hint" data-i18n="hint_telegram_soon">Telegram delivery is not active yet. One-tap Approve/Reject in Telegram is coming next; approval falls back to the on-page popup until then.</p>
+        <p class="field-hint" data-i18n="hint_telegram_link">Connect the approver's Telegram: set the backend URL below, tap the button, then open the link on the approver's phone and press Start. Approve and Reject buttons arrive in Telegram after that.</p>
+        <div class="field">
+          <button type="button" id="tgLinkBtn" class="btn btn-secondary" data-i18n="btn_telegram_link">Get Telegram link</button>
+        </div>
+        <p class="field-hint" id="tgLinkArea" hidden><a id="tgLinkUrl" href="#" target="_blank" rel="noopener"></a></p>
+        <p class="field-hint" id="tgLinkStatus" aria-live="polite"></p>
       </div>
 
       <div class="field">

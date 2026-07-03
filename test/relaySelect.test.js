@@ -32,8 +32,12 @@ describe('shouldUseSupabase', () => {
   it('true when deliveryMethod is explicitly email', () => {
     expect(shouldUseSupabase({ deliveryMethod: 'email', guardianEmail: 'h@e.com' }, cfg)).toBe(true);
   });
-  it('false when deliveryMethod is telegram (no backend yet, fall back to popup)', () => {
-    expect(shouldUseSupabase({ deliveryMethod: 'telegram', guardianEmail: 'h@e.com' }, cfg)).toBe(false);
+  it('telegram: true only once linked (else fall back to popup)', () => {
+    expect(shouldUseSupabase({ deliveryMethod: 'telegram', telegramLinked: false }, cfg)).toBe(false);
+    expect(shouldUseSupabase({ deliveryMethod: 'telegram', telegramLinked: true }, cfg)).toBe(true);
+  });
+  it('telegram ignores guardianEmail: an email without a link does not enable remote', () => {
+    expect(shouldUseSupabase({ deliveryMethod: 'telegram', guardianEmail: 'h@e.com', telegramLinked: false }, cfg)).toBe(false);
   });
 });
 

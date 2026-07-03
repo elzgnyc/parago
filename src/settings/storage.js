@@ -13,7 +13,7 @@ export const DEFAULTS = {
   guardianName: '',     // label for whoever approves
   deliveryMethod: 'email', // how the approver is reached: 'email' | 'telegram'. Per-method config below persists independently, so switching never clears the other.
   guardianEmail: '',    // email delivery: where approval emails are sent
-  telegramChatId: '',   // telegram delivery: linked chat id (set by linking, round two)
+  telegramLinkCode: '', // telegram delivery: opaque code this install generated; the guardian binds it by tapping the t.me deep link
   telegramLinked: false,// telegram delivery: true once the guardian completes linking
   functionsBaseUrl: '', // Supabase Edge Functions URL for email approval; set in Options (not code). Blank = local popup approval. Not a secret (it is the public project URL).
   lang: 'en',           // 'en' | 'vi'

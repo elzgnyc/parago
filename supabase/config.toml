@@ -17,3 +17,9 @@ verify_jwt = false
 
 [functions.get-status]
 verify_jwt = false
+
+# Telegram posts bot updates here with no JWT; the extension calls the GET link
+# helpers with none either. Auth for Telegram updates is the secret token echoed
+# from setWebhook (checked in the function), not a Supabase JWT.
+[functions.telegram-webhook]
+verify_jwt = false
