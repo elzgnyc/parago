@@ -1,8 +1,6 @@
 // Developer mode: a floating panel injected on Amazon pages when settings.devMode
-// is on. It lets you SEE the guardian-approval experience (the blocking overlays
-// and a real test email) using a fixed fake cart, without buying anything. The
-// overlay demos are pure UI; the test email creates a normal single-use approval
-// row that is wired to NO real Amazon order, so approving it purchases nothing.
+// is on. It lets you SEE the place-order hold screens (pure UI, nothing is bought).
+// The "send a real test approval" action lives in the extension Settings page.
 import { getSettings, onSettingsChanged } from '../settings/storage.js';
 import { setLang } from '../i18n/i18n.js';
 import { removeOverlay } from './overlay.js';
@@ -10,39 +8,6 @@ import {
   showProcessing, showFinishing, showConfirmed, showCouldNotComplete,
   showManualFallback, showOrderChanged, removePlacementOverlay,
 } from './placementOverlay.js';
-import { SupabaseRelay } from '../relay/supabaseRelay.js';
-import { shouldUseSupabase, resolveFunctionsBaseUrl } from '../relay/selectRelay.js';
-import { CONFIG } from '../config.js';
-import { SAMPLE_CART } from './devSample.js';
-import { parseCart } from '../lib/parseCart.js';
-
-const CART_SNAPSHOT_KEY = 'parago_cart_snapshot';
-const SNAPSHOT_MAX_AGE_MS = 30 * 60 * 1000; // older carts aren't trusted for the demo
-
-function loadCartSnapshot() {
-  return new Promise((resolve) => {
-    try {
-      chrome.storage.local.get({ [CART_SNAPSHOT_KEY]: null }, (d) => resolve(d[CART_SNAPSHOT_KEY] || null));
-    } catch (e) { resolve(null); }
-  });
-}
-
-// What the demo + test email show. Prefer the shopper's ACTUAL cart parsed live
-// from the page, so dev mode reflects the items literally in their Amazon cart.
-// If this page has no parseable cart (a product or checkout page, whose DOM the
-// cart selectors don't match), fall back to the cart snapshot the checkout script
-// stashes while on the cart page. Only when there is no real cart data anywhere do
-// we use the fixed SAMPLE_CART. Cart-page items carry no rating/reviewCount; the
-// email renders fine without stars.
-async function currentCart() {
-  const parsed = parseCart(document);
-  if (parsed.items && parsed.items.length) return parsed;
-  const snap = await loadCartSnapshot();
-  if (snap && Array.isArray(snap.items) && snap.items.length && (Date.now() - (snap.at || 0) < SNAPSHOT_MAX_AGE_MS)) {
-    return { total: snap.total != null ? snap.total : null, items: snap.items };
-  }
-  return SAMPLE_CART;
-}
 
 const PANEL_ID = 'parago-dev-panel';
 const BAR_ID = 'parago-dev-bar';
@@ -112,36 +77,6 @@ function demoPlaceOrder() {
   ]);
 }
 
-// Demo 3: a REAL approval email through the configured backend, using the fake
-// cart. Needs a guardian email + a configured functions base URL; otherwise we
-// say so rather than silently doing nothing.
-async function sendTestEmail() {
-  if (!shouldUseSupabase(currentSettings, CONFIG)) {
-    toast('Configure a delivery method (email or Telegram) and the backend URL in Settings to send a real test.');
-    return;
-  }
-  // Route through the SAME delivery method the real checkout uses, so the test exercises
-  // the configured channel (Telegram if linked, else email), not a hardcoded email.
-  const method = currentSettings.deliveryMethod || 'email';
-  const relay = new SupabaseRelay({
-    baseUrl: resolveFunctionsBaseUrl(currentSettings, CONFIG),
-    guardianEmail: currentSettings.guardianEmail,
-    guardianName: currentSettings.guardianName,
-    deliveryMethod: method,
-    telegramLinkCode: currentSettings.telegramLinkCode || null,
-  });
-  toast(method === 'telegram' ? 'Sending test approval to Telegram...' : ('Sending test email to ' + currentSettings.guardianEmail + '...'));
-  try {
-    const cart = await currentCart();
-    await relay.submitRequest({ total: cart.total, items: cart.items });
-    toast(method === 'telegram'
-      ? 'Sent to your linked Telegram. Approve/Reject is live (buys nothing).'
-      : ('Sent to ' + currentSettings.guardianEmail + '. Open it; the Approve/Reject link is live (buys nothing).'));
-  } catch (e) {
-    toast('Could not send: ' + ((e && e.message) || e));
-  }
-}
-
 function buildPanel() {
   const panel = el('div'); panel.id = PANEL_ID;
   const head = el('div', 'parago-dev-head');
@@ -165,7 +100,6 @@ function buildPanel() {
   // Label avoids the literal phrase "place order" so the real checkout intercept's
   // text-based control detector never mistakes this panel button for Amazon's.
   panel.appendChild(mk('Demo place-order screens', demoPlaceOrder));
-  panel.appendChild(mk('Send real test email', sendTestEmail));
   return panel;
 }
 

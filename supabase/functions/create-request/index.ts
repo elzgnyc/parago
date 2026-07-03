@@ -22,7 +22,7 @@ Deno.serve(async (req) => {
   try { body = await req.json(); } catch { return json({ error: 'bad_json' }, 400); }
   const {
     total = null, items = [], deliveryMethod = 'email',
-    guardianEmail = null, guardianName = null, telegramLinkCode = null,
+    guardianEmail = null, guardianName = null, telegramLinkCode = null, approveUrl = null,
   } = body ?? {};
 
   const supabase = createClient(
@@ -76,7 +76,11 @@ Deno.serve(async (req) => {
   // The approval link points at the static page (GitHub Pages), which renders the
   // purchase and calls the decision function. Used by email and by Telegram's
   // "See full details" button. Override via APPROVE_URL if the host changes.
-  const approveBase = (Deno.env.get('APPROVE_URL') ?? 'https://nhuvtran.github.io/parago/approve.html').replace(/\/$/, '');
+  // Where the guardian's approve/reject page is hosted. A caller-supplied approveUrl
+  // (from the extension's Advanced setting) wins, then the server env, then the
+  // default. Only accept an https URL so the emailed/messaged link is never downgraded.
+  const callerApprove = (typeof approveUrl === 'string' && /^https:\/\//i.test(approveUrl.trim())) ? approveUrl.trim() : null;
+  const approveBase = (callerApprove ?? Deno.env.get('APPROVE_URL') ?? 'https://nhuvtran.github.io/parago/approve.html').replace(/\/$/, '');
   const link = `${approveBase}?token=${token}`;
 
   if (deliveryMethod === 'telegram') {

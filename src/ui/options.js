@@ -1,12 +1,13 @@
 import { getSettings, setSettings, DEFAULTS } from '../settings/storage.js';
 import { setLang, t } from '../i18n/i18n.js';
 import { CONFIG } from '../config.js';
-import { resolveFunctionsBaseUrl } from '../relay/selectRelay.js';
+import { shouldUseSupabase, resolveFunctionsBaseUrl } from '../relay/selectRelay.js';
+import { SupabaseRelay } from '../relay/supabaseRelay.js';
 
 // Inputs/selects driven by a generic change -> save listener.
 const fields = [
   'lang', 'minStars', 'minRatings', 'mode',
-  'guardianMode', 'guardianLimit', 'guardianEmail', 'functionsBaseUrl',
+  'guardianMode', 'guardianLimit', 'guardianEmail', 'functionsBaseUrl', 'approveUrl',
 ];
 // Settings driven by segmented On/Off (or Email/Telegram) controls instead of inputs.
 const boolSegs = ['hideSponsored', 'flagLowRating', 'flagFewRatings', 'flagNonPrime', 'hoverReveal', 'devMode'];
@@ -66,6 +67,8 @@ function applyMethodVisibility(method) {
   }
   if (method === 'telegram') getSettings().then(renderTelegramState);
   else stopTgPoll();
+  const tb = document.getElementById('testBtn');
+  if (tb) tb.textContent = method === 'telegram' ? t('btn_test_tg') : t('btn_test_email');
 }
 
 function applyGuardianModeVisibility(mode) {
@@ -267,6 +270,7 @@ function load(settings) {
   document.getElementById('guardianLimit').value = settings.guardianLimit;
   document.getElementById('guardianEmail').value = settings.guardianEmail;
   document.getElementById('functionsBaseUrl').value = settings.functionsBaseUrl || '';
+  document.getElementById('approveUrl').value = settings.approveUrl || '';
   setSeg('deliveryMethod', settings.deliveryMethod || 'email');
   for (const k of boolSegs) setSeg(k, settings[k]);
   setLang(settings.lang);
@@ -290,6 +294,7 @@ function readForm() {
     guardianLimit: Math.round(toFinite(document.getElementById('guardianLimit').value, DEFAULTS.guardianLimit, 0, Infinity)),
     guardianEmail: document.getElementById('guardianEmail').value.trim(),
     functionsBaseUrl: document.getElementById('functionsBaseUrl').value.trim(),
+    approveUrl: document.getElementById('approveUrl').value.trim(),
     deliveryMethod: getSeg('deliveryMethod'),
   };
   for (const k of boolSegs) out[k] = getSeg(k);
@@ -351,6 +356,41 @@ async function resetDefaults() {
   flash();
 }
 
+// The real cart the checkout script stashed while on the Amazon cart page (selected
+// items only). Read from Options so the test uses the actual cart, not a fake one.
+function loadCartSnapshot() {
+  return new Promise((resolve) => {
+    try { chrome.storage.local.get({ parago_cart_snapshot: null }, (d) => resolve(d.parago_cart_snapshot || null)); }
+    catch (e) { resolve(null); }
+  });
+}
+
+// Fire a real test approval through the configured channel (email or Telegram) using
+// the shopper's actual cart, so the whole flow can be checked from Settings.
+async function sendTest() {
+  const status = document.getElementById('testStatus');
+  const settings = await getSettings();
+  if (!shouldUseSupabase(settings, CONFIG)) { status.textContent = t('test_need_config'); return; }
+  const snap = await loadCartSnapshot();
+  if (!snap || !Array.isArray(snap.items) || !snap.items.length) { status.textContent = t('test_no_cart'); return; }
+  const method = settings.deliveryMethod || 'email';
+  const relay = new SupabaseRelay({
+    baseUrl: resolveFunctionsBaseUrl(settings, CONFIG),
+    guardianEmail: settings.guardianEmail,
+    guardianName: settings.guardianName,
+    deliveryMethod: method,
+    telegramLinkCode: settings.telegramLinkCode || null,
+    approveUrl: settings.approveUrl || null,
+  });
+  status.textContent = t('test_sending');
+  try {
+    await relay.submitRequest({ total: snap.total, items: snap.items });
+    status.textContent = method === 'telegram' ? t('test_sent_tg') : t('test_sent_email');
+  } catch (e) {
+    status.textContent = t('test_failed') + ' ' + ((e && e.message) || e);
+  }
+}
+
 async function main() {
   const settings = await getSettings();
   setLang(settings.lang);
@@ -363,6 +403,7 @@ async function main() {
   document.getElementById('reset').addEventListener('click', resetDefaults);
   document.getElementById('tgLinkBtn').addEventListener('click', setupTelegramLink);
   document.getElementById('tgResetBtn').addEventListener('click', resetTelegramLink);
+  document.getElementById('testBtn').addEventListener('click', sendTest);
 
   for (const b of document.querySelectorAll('.ui-mode-btn')) {
     b.addEventListener('click', async () => {

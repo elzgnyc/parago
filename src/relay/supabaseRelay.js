@@ -25,12 +25,13 @@ function bgSend(url, options) {
 }
 
 export class SupabaseRelay {
-  constructor({ baseUrl, guardianEmail, guardianName = null, deliveryMethod = 'email', telegramLinkCode = null, send, store, pollMs } = {}) {
+  constructor({ baseUrl, guardianEmail, guardianName = null, deliveryMethod = 'email', telegramLinkCode = null, approveUrl = null, send, store, pollMs } = {}) {
     this.baseUrl = String(baseUrl || '').replace(/\/$/, '');
     this.guardianEmail = guardianEmail;
     this.guardianName = guardianName;
     this.deliveryMethod = deliveryMethod;
     this.telegramLinkCode = telegramLinkCode;
+    this.approveUrl = approveUrl;
     this.send = send || bgSend;
     this.store = store || chromeStore();
     this.pollMs = pollMs || 3000;
@@ -45,6 +46,7 @@ export class SupabaseRelay {
         deliveryMethod: this.deliveryMethod,
         guardianEmail: this.guardianEmail, guardianName: this.guardianName,
         telegramLinkCode: this.telegramLinkCode,
+        approveUrl: this.approveUrl,
       }),
     });
     const id = body && body.id;

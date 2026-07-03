@@ -72,11 +72,22 @@
           </div>
         </div>
 
+        <div class="field">
+          <button type="button" id="testBtn" class="btn btn-secondary">Send a test</button>
+          <p class="field-hint" id="testStatus" aria-live="polite"></p>
+        </div>
+
         <div class="field" data-adv>
           <label for="functionsBaseUrl" data-i18n="label_functions_url">Email backend URL</label>
           <input type="url" id="functionsBaseUrl" placeholder="https://YOUR-REF.functions.supabase.co" />
         </div>
         <p class="field-hint" data-adv data-i18n="hint_functions_url">Needed to send approval emails. Paste your Supabase project's Edge Functions URL. The Brevo key and service-role key stay on the server.</p>
+
+        <div class="field" data-adv>
+          <label for="approveUrl" data-i18n="label_approve_url">Approval page URL</label>
+          <input type="url" id="approveUrl" placeholder="https://YOUR-NAME.github.io/parago/approve.html" />
+        </div>
+        <p class="field-hint" data-adv data-i18n="hint_approve_url">Where the guardian's approve/reject link points (the hosted approve.html). Leave blank for the default.</p>
       </section>
 
       <section class="card">

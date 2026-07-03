@@ -17,6 +17,7 @@ export const DEFAULTS = {
   telegramLinked: false,// telegram delivery: true once the guardian completes linking
   telegramName: '',     // display name of the connected Telegram chat (shown in Options), filled at link time
   functionsBaseUrl: '', // Supabase Edge Functions URL for email approval; set in Options (not code). Blank = local popup approval. Not a secret (it is the public project URL).
+  approveUrl: '',       // where the guardian's approve/reject link points (hosted approve.html); blank = server default. Advanced.
   advancedMode: false,  // Options page detail level: false = Simple (hides advanced/developer controls)
   lang: 'en',           // 'en' | 'vi'
   devMode: false,       // show the on-page Developer test panel (no real purchases)
