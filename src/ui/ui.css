@@ -42,6 +42,7 @@ body.options { padding: 40px 28px 56px; }
 
 /* Brand header */
 .brand { display: flex; align-items: center; gap: 13px; margin-bottom: 22px; }
+.options .brand { justify-content: space-between; }
 .brand .logo {
   flex: 0 0 auto;
   width: 42px; height: 42px;
@@ -157,7 +158,12 @@ input.switch:focus-visible { box-shadow: 0 0 0 3px var(--accent-tint); }
   display: flex; align-items: center; justify-content: space-between;
   gap: 12px; margin-top: 4px;
 }
-.saved { color: var(--accent-strong); font-weight: 700; min-height: 1.4rem; }
+.saved {
+  color: var(--accent-strong); font-weight: 700; min-height: 1.4rem;
+  opacity: 0; transform: translateY(3px); transition: opacity .18s, transform .18s;
+}
+.saved.show { opacity: 1; transform: translateY(0); }
+.btn.is-armed { background: var(--danger); color: #fff; border-color: var(--danger); }
 
 /* Popup header: logo + name on the left, a compact protection switch + settings gear
    on the right. The switch controls the search filter on/off, nothing else. */
@@ -202,3 +208,76 @@ input.switch:focus-visible { box-shadow: 0 0 0 3px var(--accent-tint); }
 .btn-approve { background: var(--accent); color: #fff; }
 .btn-reject { background: var(--danger); color: #fff; }
 .pending-empty { color: var(--ink-soft); font-weight: 400 !important; }
+
+/* ── Options page chrome ─────────────────────────────────────────────────────── */
+/* Simple / Advanced detail-level toggle in the header */
+.ui-mode {
+  display: inline-flex; padding: 3px; gap: 2px;
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: 999px; box-shadow: var(--shadow);
+}
+.ui-mode-btn {
+  font: inherit; font-weight: 600; font-size: 0.85rem;
+  padding: 6px 15px; border: 0; border-radius: 999px;
+  background: transparent; color: var(--ink-soft); cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.ui-mode-btn.is-active { background: var(--accent); color: #fff; }
+.ui-mode-btn:focus-visible { outline: 3px solid var(--accent-tint); outline-offset: 2px; }
+
+/* Live "what happens" example under the approval mode */
+.field-example {
+  margin: 10px 0 0; font-size: 13px; line-height: 1.45; color: var(--ink);
+  background: var(--accent-tint); border-radius: var(--radius-sm); padding: 10px 12px;
+}
+
+/* Provider (email / telegram) icons */
+.prov-ic { display: inline-grid; place-items: center; vertical-align: -3px; color: var(--accent); margin-right: 6px; }
+.prov-ic-tg { margin-right: 0; }
+.prov-head { display: flex; align-items: center; gap: 7px; font-weight: 600; margin: 2px 0 10px; }
+
+/* Telegram: connected badge + expandable details */
+.tg-connected {
+  display: flex; align-items: center; gap: 9px; width: 100%; text-align: left;
+  font: inherit; font-weight: 600; padding: 12px 14px; cursor: pointer;
+  border: 1px solid var(--line); border-radius: var(--radius-sm);
+  background: var(--accent-tint); color: var(--accent-strong);
+}
+.tg-connected .tg-dot { flex: 0 0 auto; width: 9px; height: 9px; border-radius: 50%; background: #1f9d55; }
+.tg-connected-name { color: var(--ink-soft); font-weight: 500; }
+.tg-connected .tg-chev { margin-left: auto; transition: transform 0.15s; }
+.tg-connected[aria-expanded="true"] .tg-chev { transform: rotate(180deg); }
+.tg-details { padding: 12px 2px 2px; }
+.tg-details .btn { margin-top: 8px; }
+
+/* Backend URL: a long value, so give it a monospace, full-width field */
+#functionsBaseUrl { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.85rem; }
+
+/* Rating: number first (Amazon-style "4.5" then the stars) */
+.stars-control input[type="number"] { width: 72px; font-weight: 600; }
+
+/* Language card, small, at the end of the page */
+.lang-card { max-width: 360px; margin-top: 2px; }
+
+/* Slide-in when a conditionally-shown control appears (method fields, spending
+   limit, advanced controls, telegram states). Plays on display none -> shown. */
+@keyframes pgSlideIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+[data-method]:not([hidden]),
+[data-adv]:not([hidden]),
+#guardianLimitField:not([hidden]),
+#tgConnected:not([hidden]),
+#tgDetails:not([hidden]),
+#tgLinkArea:not([hidden]) {
+  animation: pgSlideIn 0.22s ease both;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-method]:not([hidden]),
+  [data-adv]:not([hidden]),
+  #guardianLimitField:not([hidden]),
+  #tgConnected:not([hidden]),
+  #tgDetails:not([hidden]),
+  #tgLinkArea:not([hidden]) { animation: none; }
+}

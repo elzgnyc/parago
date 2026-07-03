@@ -12,131 +12,147 @@
   <main class="container">
     <header class="brand">
       <h1>Parago</h1>
+      <div class="ui-mode" role="group" aria-label="Settings detail level">
+        <button type="button" class="ui-mode-btn" data-mode="simple" data-i18n="mode_simple">Simple</button>
+        <button type="button" class="ui-mode-btn" data-mode="advanced" data-i18n="mode_advanced">Advanced</button>
+      </div>
     </header>
 
     <div class="cards">
-    <section class="card">
-      <h2 class="card-title" data-i18n="section_filtering">Search filtering</h2>
+      <section class="card">
+        <h2 class="card-title" data-i18n="section_approval">Purchase approval</h2>
 
-      <div class="field">
+        <div class="field">
+          <label for="guardianMode" data-i18n="label_guardian_mode">Ask someone to approve purchases</label>
+          <select id="guardianMode">
+            <option value="off" data-i18n="guardian_off">Off</option>
+            <option value="always" data-i18n="guardian_always">For every order</option>
+            <option value="over_limit" data-i18n="guardian_over_limit">Only over a spending limit</option>
+          </select>
+        </div>
+        <p class="field-example" id="guardianExample" aria-live="polite"></p>
+
+        <div class="field" id="guardianLimitField">
+          <label for="guardianLimit" data-i18n="label_guardian_limit">Spending limit</label>
+          <input type="number" id="guardianLimit" min="0" step="1" />
+        </div>
+
+        <div class="field">
+          <label for="deliveryMethod" data-i18n="label_delivery_method">How to reach the approver</label>
+          <select id="deliveryMethod">
+            <option value="email" data-i18n="delivery_email">Email</option>
+            <option value="telegram" data-i18n="delivery_telegram">Telegram</option>
+          </select>
+        </div>
+
+        <div class="field" data-method="email">
+          <label for="guardianEmail">
+            <span class="prov-ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 7 9 6 9-6" /></svg></span>
+            <span data-i18n="label_guardian_email">Approver's email</span>
+          </label>
+          <input type="email" id="guardianEmail" />
+        </div>
+
+        <div data-method="telegram">
+          <div class="prov-head" aria-hidden="true">
+            <span class="prov-ic prov-ic-tg"><svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M21.9 4.3 18.7 19.4c-.2 1-.9 1.3-1.7.8l-4.7-3.5-2.3 2.2c-.3.3-.5.5-1 .5l.3-4.9L18 6.1c.4-.3-.1-.5-.6-.2L7.2 12.3l-4.6-1.4c-1-.3-1-1 .2-1.5L20.6 2.7c.8-.3 1.6.2 1.3 1.6z" /></svg></span>
+            <span class="prov-head-label" data-i18n="delivery_telegram">Telegram</span>
+          </div>
+
+          <button type="button" id="tgConnected" class="tg-connected" hidden aria-expanded="false">
+            <span class="tg-dot"></span>
+            <span class="tg-connected-text"><span data-i18n="tg_connected_badge">Connected</span><span class="tg-connected-name" id="tgConnectedName"></span></span>
+            <span class="tg-chev" aria-hidden="true">▾</span>
+          </button>
+          <div class="tg-details" id="tgDetails" hidden>
+            <p class="field-hint" id="tgDetailsBody" data-i18n="tg_details_body">Approval requests are sent to this Telegram chat. Approve or Reject arrives there with one tap.</p>
+            <button type="button" id="tgResetBtn" class="btn btn-secondary" data-i18n="btn_telegram_reset">Reset / link a different device</button>
+          </div>
+
+          <div id="tgLinkFlow">
+            <p class="field-hint" data-i18n="hint_telegram_link">Connect the approver's Telegram: set the backend URL below, tap the button, then open the link on the approver's phone and press Start.</p>
+            <div class="field">
+              <button type="button" id="tgLinkBtn" class="btn btn-secondary" data-i18n="btn_telegram_link">Get Telegram link</button>
+            </div>
+            <p class="field-hint" id="tgLinkArea" hidden><a id="tgLinkUrl" href="#" target="_blank" rel="noopener"></a></p>
+            <p class="field-hint" id="tgLinkStatus" aria-live="polite"></p>
+          </div>
+        </div>
+
+        <div class="field" data-adv>
+          <label for="functionsBaseUrl" data-i18n="label_functions_url">Email backend URL</label>
+          <input type="url" id="functionsBaseUrl" placeholder="https://YOUR-REF.functions.supabase.co" />
+        </div>
+        <p class="field-hint" data-adv data-i18n="hint_functions_url">Needed to send approval emails. Paste your Supabase project's Edge Functions URL. The Brevo key and service-role key stay on the server.</p>
+      </section>
+
+      <section class="card">
+        <h2 class="card-title" data-i18n="section_rating">Rating</h2>
+        <div class="field">
+          <label for="minStars" data-i18n="label_min_stars">Hide items rated below (stars)</label>
+          <div class="stars-control">
+            <input type="number" id="minStars" min="0" max="5" step="0.5" />
+            <div class="stars" id="starPicker" role="group" aria-label="Minimum stars"></div>
+          </div>
+          <p class="field-hint" data-i18n="hint_min_stars">Click the left half of a star for a half-step (e.g. 3.5).</p>
+        </div>
+        <div class="field">
+          <label for="minRatings" data-i18n="label_min_ratings">Hide items with this many ratings or fewer</label>
+          <input type="number" id="minRatings" min="0" step="1" />
+        </div>
+      </section>
+
+      <section class="card">
+        <h2 class="card-title" data-i18n="section_filtering">Search filtering</h2>
+        <div class="field">
+          <label for="mode" data-i18n="label_mode">What to do with flagged items</label>
+          <select id="mode">
+            <option value="grey" data-i18n="mode_grey">Grey them out (recommended)</option>
+            <option value="hide" data-i18n="mode_hide">Hide them completely</option>
+            <option value="off" data-i18n="mode_off">Do nothing (off)</option>
+          </select>
+        </div>
+        <div class="field switch-row">
+          <label for="hideSponsored" data-i18n="label_hide_sponsored">Hide sponsored items</label>
+          <input type="checkbox" id="hideSponsored" class="switch" />
+        </div>
+        <div class="field switch-row" data-adv>
+          <label for="flagLowRating" data-i18n="label_flag_low_rating">Flag low-rated items</label>
+          <input type="checkbox" id="flagLowRating" class="switch" />
+        </div>
+        <div class="field switch-row" data-adv>
+          <label for="flagFewRatings" data-i18n="label_flag_few_ratings">Flag items with few ratings</label>
+          <input type="checkbox" id="flagFewRatings" class="switch" />
+        </div>
+        <div class="field switch-row" data-adv>
+          <label for="flagNonPrime" data-i18n="label_flag_non_prime">Flag items not on Prime</label>
+          <input type="checkbox" id="flagNonPrime" class="switch" />
+        </div>
+        <div class="field switch-row" data-adv>
+          <label for="hoverReveal" data-i18n="label_hover_reveal">Show greyed items normally when I hover over them</label>
+          <input type="checkbox" id="hoverReveal" class="switch" />
+        </div>
+      </section>
+
+      <section class="card" data-adv>
+        <h2 class="card-title" data-i18n="section_developer">Developer</h2>
+        <div class="field switch-row">
+          <label for="devMode" data-i18n="label_dev_mode">Developer mode (test panel on Amazon)</label>
+          <input type="checkbox" id="devMode" class="switch" />
+        </div>
+        <p class="field-hint" data-i18n="hint_dev_mode">Adds a panel on Amazon pages to preview the approval flow and send a real test. Nothing is ever bought.</p>
+      </section>
+    </div>
+
+    <section class="card lang-card">
+      <div class="field switch-row">
         <label for="lang" data-i18n="label_language">Language</label>
-        <select id="lang">
+        <select id="lang" class="lang-select">
           <option value="en" data-i18n="lang_en">English</option>
           <option value="vi" data-i18n="lang_vi">Tiếng Việt</option>
         </select>
       </div>
-
-      <div class="field">
-        <label for="mode" data-i18n="label_mode">What to do with flagged items</label>
-        <select id="mode">
-          <option value="grey" data-i18n="mode_grey">Grey them out (recommended)</option>
-          <option value="hide" data-i18n="mode_hide">Hide them completely</option>
-          <option value="off" data-i18n="mode_off">Do nothing (off)</option>
-        </select>
-      </div>
-
-      <div class="field">
-        <label for="minStars" data-i18n="label_min_stars">Hide items rated below (stars)</label>
-        <div class="stars-control">
-          <div class="stars" id="starPicker" role="group" aria-label="Minimum stars"></div>
-          <input type="number" id="minStars" min="0" max="5" step="0.5" />
-        </div>
-      </div>
-
-      <div class="field">
-        <label for="minRatings" data-i18n="label_min_ratings">Hide items with this many ratings or fewer</label>
-        <input type="number" id="minRatings" min="0" step="1" />
-      </div>
-
-      <div class="field switch-row">
-        <label for="flagLowRating" data-i18n="label_flag_low_rating">Flag low-rated items</label>
-        <input type="checkbox" id="flagLowRating" class="switch" />
-      </div>
-
-      <div class="field switch-row">
-        <label for="flagFewRatings" data-i18n="label_flag_few_ratings">Flag items with few ratings</label>
-        <input type="checkbox" id="flagFewRatings" class="switch" />
-      </div>
-
-      <div class="field switch-row">
-        <label for="hideSponsored" data-i18n="label_hide_sponsored">Hide sponsored items</label>
-        <input type="checkbox" id="hideSponsored" class="switch" />
-      </div>
-
-      <div class="field switch-row">
-        <label for="flagNonPrime" data-i18n="label_flag_non_prime">Flag items not on Prime</label>
-        <input type="checkbox" id="flagNonPrime" class="switch" />
-      </div>
-
-      <div class="field switch-row">
-        <label for="hoverReveal" data-i18n="label_hover_reveal">Show greyed items normally when I hover over them</label>
-        <input type="checkbox" id="hoverReveal" class="switch" />
-      </div>
     </section>
-
-    <section class="card">
-      <h2 class="card-title" data-i18n="section_approval">Purchase approval</h2>
-
-      <div class="field">
-        <label for="guardianMode" data-i18n="label_guardian_mode">Ask someone to approve purchases</label>
-        <select id="guardianMode">
-          <option value="off" data-i18n="guardian_off">Off</option>
-          <option value="always" data-i18n="guardian_always">For every order</option>
-          <option value="over_limit" data-i18n="guardian_over_limit">Only over a spending limit</option>
-        </select>
-      </div>
-
-      <div class="field" id="guardianLimitField">
-        <label for="guardianLimit" data-i18n="label_guardian_limit">Spending limit</label>
-        <input type="number" id="guardianLimit" min="0" step="1" />
-      </div>
-
-      <div class="field">
-        <label for="guardianName" data-i18n="label_guardian_name">Approver's name</label>
-        <input type="text" id="guardianName" />
-      </div>
-
-      <div class="field">
-        <label for="deliveryMethod" data-i18n="label_delivery_method">How to reach the approver</label>
-        <select id="deliveryMethod">
-          <option value="email" data-i18n="delivery_email">Email</option>
-          <option value="telegram" data-i18n="delivery_telegram">Telegram</option>
-        </select>
-      </div>
-
-      <div class="field" data-method="email">
-        <label for="guardianEmail" data-i18n="label_guardian_email">Approver's email</label>
-        <input type="email" id="guardianEmail" />
-      </div>
-
-      <div data-method="telegram">
-        <p class="field-hint" data-i18n="hint_telegram_link">Connect the approver's Telegram: set the backend URL below, tap the button, then open the link on the approver's phone and press Start. Approve and Reject buttons arrive in Telegram after that.</p>
-        <div class="field">
-          <button type="button" id="tgLinkBtn" class="btn btn-secondary" data-i18n="btn_telegram_link">Get Telegram link</button>
-        </div>
-        <p class="field-hint" id="tgLinkArea" hidden><a id="tgLinkUrl" href="#" target="_blank" rel="noopener"></a></p>
-        <p class="field-hint" id="tgLinkStatus" aria-live="polite"></p>
-        <div class="field">
-          <button type="button" id="tgResetBtn" class="btn btn-secondary" data-i18n="btn_telegram_reset" hidden>Reset / link a different device</button>
-        </div>
-      </div>
-
-      <div class="field">
-        <label for="functionsBaseUrl" data-i18n="label_functions_url">Email backend URL</label>
-        <input type="url" id="functionsBaseUrl" placeholder="https://YOUR-REF.functions.supabase.co" />
-      </div>
-      <p class="field-hint" data-i18n="hint_functions_url">Needed to send approval emails. Paste your Supabase project's Edge Functions URL (it looks like https://YOUR-REF.functions.supabase.co). Leave blank to use local popup approval on this device. The Brevo key and Supabase service-role key stay on the server and are never entered here.</p>
-    </section>
-
-    <section class="card">
-      <h2 class="card-title">Developer</h2>
-      <div class="field switch-row">
-        <label for="devMode">Developer mode (test panel on Amazon)</label>
-        <input type="checkbox" id="devMode" class="switch" />
-      </div>
-      <p class="field-hint">Adds a panel on Amazon pages to preview the approval overlays and send a real test email with a fake cart. Nothing is ever bought.</p>
-    </section>
-    </div>
 
     <div class="actions">
       <span class="saved" id="saved" aria-live="polite"></span>

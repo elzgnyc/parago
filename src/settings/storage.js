@@ -15,7 +15,9 @@ export const DEFAULTS = {
   guardianEmail: '',    // email delivery: where approval emails are sent
   telegramLinkCode: '', // telegram delivery: opaque code this install generated; the guardian binds it by tapping the t.me deep link
   telegramLinked: false,// telegram delivery: true once the guardian completes linking
+  telegramName: '',     // display name of the connected Telegram chat (shown in Options), filled at link time
   functionsBaseUrl: '', // Supabase Edge Functions URL for email approval; set in Options (not code). Blank = local popup approval. Not a secret (it is the public project URL).
+  advancedMode: false,  // Options page detail level: false = Simple (hides advanced/developer controls)
   lang: 'en',           // 'en' | 'vi'
   devMode: false,       // show the on-page Developer test panel (no real purchases)
 };

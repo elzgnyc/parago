@@ -6,42 +6,61 @@ import { resolveFunctionsBaseUrl } from '../relay/selectRelay.js';
 const fields = [
   'lang', 'minStars', 'minRatings', 'mode',
   'hideSponsored', 'flagLowRating', 'flagFewRatings', 'flagNonPrime', 'hoverReveal',
-  'guardianMode', 'guardianLimit', 'guardianName', 'deliveryMethod', 'guardianEmail', 'functionsBaseUrl',
+  'guardianMode', 'guardianLimit', 'deliveryMethod', 'guardianEmail', 'functionsBaseUrl',
   'devMode',
 ];
 
-// Show only the fields for the selected delivery method; the others stay in the
-// DOM (and their stored values persist) but are hidden. This is what makes
-// swapping the selector never clear the other method's config.
+// ── Detail level (Simple / Advanced) ─────────────────────────────────────────────
+// Advanced-only controls carry [data-adv]; Simple mode hides them so the page is not
+// overwhelming. The choice persists (settings.advancedMode).
+function applyAdvancedVisibility(advanced) {
+  for (const el of document.querySelectorAll('[data-adv]')) el.hidden = !advanced;
+  for (const b of document.querySelectorAll('.ui-mode-btn')) {
+    b.classList.toggle('is-active', (b.getAttribute('data-mode') === 'advanced') === !!advanced);
+  }
+}
+
+// Show only the fields for the selected delivery method; the others stay in the DOM
+// (their stored values persist) but hidden, so swapping never clears the other method.
 function applyMethodVisibility(method) {
   for (const el of document.querySelectorAll('[data-method]')) {
     el.hidden = el.getAttribute('data-method') !== method;
   }
-  if (method === 'telegram') {
-    // Re-assert the connected state on return (the transient link UI is cleared on leave).
-    getSettings().then((s) => { if (s.telegramLinked) { tgStatus(t('tg_connected')); showTgReset(); } });
-  } else {
-    // Leaving telegram: stop the poll AND clear the transient link UI, so a stale
-    // "waiting" with a dead poll cannot reappear when we return (the poll only restarts
-    // on a fresh button click, which is the only thing that persists telegramLinked).
-    stopTgPoll();
-    const area = document.getElementById('tgLinkArea');
-    if (area) area.hidden = true;
-    tgStatus('');
-  }
+  if (method === 'telegram') getSettings().then(renderTelegramState);
+  else stopTgPoll();
 }
 
-// The spending limit only applies to the "only over a spending limit" mode, so the
-// field is hidden for Off / For every order.
+// Spending limit only applies to the "only over a spending limit" mode.
 function applyGuardianModeVisibility(mode) {
   const el = document.getElementById('guardianLimitField');
   if (el) el.hidden = mode !== 'over_limit';
 }
 
-// ── Telegram linking ────────────────────────────────────────────────────────────
-// The install holds an opaque code; the guardian binds it to their chat by tapping
-// t.me/<bot>?start=<code> and pressing Start. We fetch the bot username from the
-// webhook, show the deep link, and poll link-status until the guardian connects.
+// A plain-language, live example of what the selected approval mode does.
+function updateGuardianExample() {
+  const el = document.getElementById('guardianExample');
+  if (!el) return;
+  const mode = document.getElementById('guardianMode').value;
+  const via = document.getElementById('deliveryMethod').value === 'telegram' ? t('via_telegram') : t('via_email');
+  const limit = document.getElementById('guardianLimit').value || '0';
+  if (mode === 'off') el.textContent = t('ex_off');
+  else if (mode === 'always') el.textContent = t('ex_always').replace('{via}', via);
+  else el.textContent = t('ex_over').replace('{limit}', limit).replace('{via}', via);
+}
+
+// ── Telegram: connected badge vs linking flow ─────────────────────────────────────
+function renderTelegramState(settings) {
+  const linked = !!settings.telegramLinked;
+  const conn = document.getElementById('tgConnected');
+  const flow = document.getElementById('tgLinkFlow');
+  const details = document.getElementById('tgDetails');
+  if (conn) conn.hidden = !linked;
+  if (flow) flow.hidden = linked;
+  if (!linked && details) details.hidden = true;
+  const nameEl = document.getElementById('tgConnectedName');
+  if (nameEl) nameEl.textContent = settings.telegramName ? (' · ' + settings.telegramName) : '';
+}
+
 function genLinkCode() {
   const b = new Uint8Array(24);
   crypto.getRandomValues(b);
@@ -58,10 +77,7 @@ function tgStatus(msg) {
 async function setupTelegramLink() {
   const settings = await getSettings();
   const base = resolveFunctionsBaseUrl(settings, CONFIG);
-  if (!/^https?:\/\//i.test(base) || base.includes('<PROJECT_REF>')) {
-    tgStatus(t('tg_need_backend'));
-    return;
-  }
+  if (!/^https?:\/\//i.test(base) || base.includes('<PROJECT_REF>')) { tgStatus(t('tg_need_backend')); return; }
   let code = settings.telegramLinkCode;
   if (!code) { code = genLinkCode(); await setSettings({ telegramLinkCode: code }); }
 
@@ -79,11 +95,10 @@ async function setupTelegramLink() {
   if (a) { a.href = url; a.textContent = url; }
   const area = document.getElementById('tgLinkArea');
   if (area) area.hidden = false;
-  showTgReset();
   tgStatus(t('tg_waiting'));
 
-  // Poll link-status until the guardian taps Start, then stop. Bounded so an
-  // Options tab left open never polls forever if they never connect.
+  // Poll link-status until the guardian taps Start, then stop. Bounded so an Options
+  // tab left open never polls forever if they never connect.
   stopTgPoll();
   const startedAt = Date.now();
   tgPoll = setInterval(async () => {
@@ -93,32 +108,28 @@ async function setupTelegramLink() {
       const j = await r.json();
       if (j && j.linked) {
         stopTgPoll();
-        await setSettings({ telegramLinked: true });
-        tgStatus(t('tg_connected'));
+        await setSettings({ telegramLinked: true, telegramName: (j && j.name) || '' });
+        renderTelegramState(await getSettings());
       }
     } catch (e) { /* transient: keep polling */ }
   }, 3000);
 }
 
-function showTgReset() {
-  const b = document.getElementById('tgResetBtn');
-  if (b) b.hidden = false;
-}
-
 // Rotate to a fresh link code and clear the linked flag so the approver can be
-// re-linked on a different device (the old code's server-side binding is simply
-// orphaned, never referenced again). Immediately starts a fresh link.
+// re-linked on a different device. Shows the linking flow again.
 async function resetTelegramLink() {
   stopTgPoll();
-  await setSettings({ telegramLinkCode: '', telegramLinked: false });
+  await setSettings({ telegramLinkCode: '', telegramLinked: false, telegramName: '' });
   const a = document.getElementById('tgLinkUrl');
   if (a) { a.href = '#'; a.textContent = ''; }
   const area = document.getElementById('tgLinkArea');
   if (area) area.hidden = true;
   tgStatus('');
+  renderTelegramState(await getSettings());
   await setupTelegramLink();
 }
 
+// ── Stars ─────────────────────────────────────────────────────────────────────────
 const SVGNS = 'http://www.w3.org/2000/svg';
 const STAR_PATH = 'M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z';
 const STAR_GOLD = '#f6b01e';
@@ -130,8 +141,8 @@ function toFinite(raw, fallback, min, max) {
   return Math.min(max, Math.max(min, n));
 }
 
-// Build five SVG stars. Each star's fill is a horizontal gradient with a hard stop,
-// so a fractional value (e.g. 3.5) renders a clean left-half-gold star.
+// Five SVG stars with a hard-stop gradient fill, so a fractional value renders a clean
+// half star. Clicking the LEFT half of a star sets the half value (e.g. 3.5).
 function buildStars() {
   const picker = document.getElementById('starPicker');
   if (!picker) return;
@@ -168,9 +179,11 @@ function buildStars() {
     svg.appendChild(path);
     btn.appendChild(svg);
 
-    btn.addEventListener('click', () => {
-      document.getElementById('minStars').value = String(i);
-      renderStars(i);
+    btn.addEventListener('click', (e) => {
+      const rect = btn.getBoundingClientRect();
+      const val = (e.clientX - rect.left) < rect.width / 2 ? i - 0.5 : i;
+      document.getElementById('minStars').value = String(val);
+      renderStars(val);
       save();
     });
     picker.appendChild(btn);
@@ -193,15 +206,13 @@ function renderStars(value) {
   }
 }
 
-// The reset control only appears once a setting differs from its default.
+// ── Form ────────────────────────────────────────────────────────────────────────
 function settingsAreDefault(s) {
   return fields.every((key) => JSON.stringify(s[key]) === JSON.stringify(DEFAULTS[key]));
 }
-
 function updateDirty() {
   document.getElementById('reset').hidden = settingsAreDefault(readForm());
 }
-
 function applyI18n() {
   for (const el of document.querySelectorAll('[data-i18n]')) {
     el.textContent = t(el.getAttribute('data-i18n'));
@@ -221,16 +232,17 @@ function load(settings) {
   document.getElementById('hoverReveal').checked = settings.hoverReveal;
   document.getElementById('guardianMode').value = settings.guardianMode;
   document.getElementById('guardianLimit').value = settings.guardianLimit;
-  document.getElementById('guardianName').value = settings.guardianName;
   document.getElementById('deliveryMethod').value = settings.deliveryMethod || 'email';
   document.getElementById('guardianEmail').value = settings.guardianEmail;
   document.getElementById('functionsBaseUrl').value = settings.functionsBaseUrl || '';
   document.getElementById('devMode').checked = settings.devMode;
-  applyMethodVisibility(settings.deliveryMethod || 'email');
-  applyGuardianModeVisibility(settings.guardianMode);
-  if (settings.telegramLinked) { tgStatus(t('tg_connected')); showTgReset(); }
   setLang(settings.lang);
   applyI18n();
+  applyAdvancedVisibility(settings.advancedMode);
+  applyMethodVisibility(settings.deliveryMethod || 'email');
+  applyGuardianModeVisibility(settings.guardianMode);
+  renderTelegramState(settings);
+  updateGuardianExample();
   renderStars(settings.minStars);
   updateDirty();
 }
@@ -248,7 +260,6 @@ function readForm() {
     hoverReveal: document.getElementById('hoverReveal').checked,
     guardianMode: document.getElementById('guardianMode').value,
     guardianLimit: Math.round(toFinite(document.getElementById('guardianLimit').value, DEFAULTS.guardianLimit, 0, Infinity)),
-    guardianName: document.getElementById('guardianName').value,
     deliveryMethod: document.getElementById('deliveryMethod').value,
     guardianEmail: document.getElementById('guardianEmail').value.trim(),
     functionsBaseUrl: document.getElementById('functionsBaseUrl').value.trim(),
@@ -256,10 +267,15 @@ function readForm() {
   };
 }
 
+// Flash a clear "Saved" confirmation on every change.
 function flash() {
   const saved = document.getElementById('saved');
   saved.textContent = t('saved');
-  setTimeout(() => { saved.textContent = ''; }, 1500);
+  saved.classList.remove('show');
+  void saved.offsetWidth; // restart the animation
+  saved.classList.add('show');
+  clearTimeout(flash._t);
+  flash._t = setTimeout(() => saved.classList.remove('show'), 1800);
 }
 
 async function save() {
@@ -271,13 +287,34 @@ async function save() {
   renderStars(patch.minStars);
   applyMethodVisibility(patch.deliveryMethod);
   applyGuardianModeVisibility(patch.guardianMode);
+  updateGuardianExample();
   setLang(patch.lang);
   applyI18n();
   flash();
   updateDirty();
 }
 
+// Reset needs a second click to confirm, so an accidental click never wipes settings.
+let resetArmed = false;
+let resetTimer = null;
+function resetLabel(key) {
+  const span = document.querySelector('#reset [data-i18n]');
+  if (span) span.textContent = t(key);
+}
 async function resetDefaults() {
+  const btn = document.getElementById('reset');
+  if (!resetArmed) {
+    resetArmed = true;
+    btn.classList.add('is-armed');
+    resetLabel('reset_confirm');
+    clearTimeout(resetTimer);
+    resetTimer = setTimeout(() => { resetArmed = false; btn.classList.remove('is-armed'); resetLabel('reset_defaults'); }, 3000);
+    return;
+  }
+  resetArmed = false;
+  clearTimeout(resetTimer);
+  btn.classList.remove('is-armed');
+  resetLabel('reset_defaults');
   await setSettings({ ...DEFAULTS });
   load({ ...DEFAULTS });
   flash();
@@ -293,6 +330,22 @@ async function main() {
   document.getElementById('reset').addEventListener('click', resetDefaults);
   document.getElementById('tgLinkBtn').addEventListener('click', setupTelegramLink);
   document.getElementById('tgResetBtn').addEventListener('click', resetTelegramLink);
+
+  for (const b of document.querySelectorAll('.ui-mode-btn')) {
+    b.addEventListener('click', async () => {
+      const advanced = b.getAttribute('data-mode') === 'advanced';
+      await setSettings({ advancedMode: advanced });
+      applyAdvancedVisibility(advanced);
+    });
+  }
+
+  const tgc = document.getElementById('tgConnected');
+  if (tgc) tgc.addEventListener('click', () => {
+    const d = document.getElementById('tgDetails');
+    const open = d.hidden;
+    d.hidden = !open;
+    tgc.setAttribute('aria-expanded', String(open));
+  });
 }
 
 main();
