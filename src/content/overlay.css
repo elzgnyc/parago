@@ -56,3 +56,13 @@
   font-size: 1.1rem; padding: .7rem 1.4rem; border: 0; border-radius: 10px;
   background: #1f8a4c; color: #fff; cursor: pointer;
 }
+
+/* Non-blocking corner toast for the informational "order is being processed" state. */
+#parago-placement-toast {
+  position: fixed; top: 16px; right: 16px; z-index: 2147483647;
+  max-width: 22rem; background: #1a2e22; color: #fff;
+  font-family: system-ui, sans-serif; padding: 12px 16px; border-radius: 12px;
+  box-shadow: 0 8px 30px rgba(0,0,0,.35);
+}
+#parago-placement-toast .parago-pl-toast-title { font-weight: 700; font-size: 1rem; }
+#parago-placement-toast .parago-pl-toast-body { font-size: .85rem; line-height: 1.4; opacity: .9; margin-top: 2px; }

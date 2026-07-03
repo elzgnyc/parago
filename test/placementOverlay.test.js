@@ -8,15 +8,19 @@ import {
 afterEach(() => { removePlacementOverlay(); document.body.innerHTML = ''; });
 
 describe('placementOverlay', () => {
-  it('shows the processing screen and blocks the page', () => {
+  it('shows processing as a non-blocking corner toast, not the blocking card', () => {
     showProcessing();
-    expect(isPlacementOverlayShown()).toBe(true);
+    // Processing is informational ("you can close this page"), so it is a corner
+    // toast, not the full-page blocking overlay the active-placement states use.
+    expect(isPlacementOverlayShown()).toBe(false);
+    expect(document.getElementById('parago-placement-toast')).not.toBeNull();
     expect(document.body.textContent).toContain('being processed');
   });
 
-  it('replaces content when switching messages', () => {
+  it('switching from the processing toast to a blocking state clears the toast', () => {
     showProcessing();
     showConfirmed();
+    expect(document.getElementById('parago-placement-toast')).toBeNull();
     expect(document.querySelectorAll('#parago-placement-overlay').length).toBe(1);
     expect(document.body.textContent).toContain('confirmed');
   });

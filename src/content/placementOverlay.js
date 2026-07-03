@@ -5,6 +5,7 @@
 import { t } from '../i18n/i18n.js';
 
 const OVERLAY_ID = 'parago-placement-overlay';
+const TOAST_ID = 'parago-placement-toast';
 
 export function isPlacementOverlayShown() {
   return !!document.getElementById(OVERLAY_ID);
@@ -13,6 +14,8 @@ export function isPlacementOverlayShown() {
 export function removePlacementOverlay() {
   const el = document.getElementById(OVERLAY_ID);
   if (el) el.remove();
+  const toast = document.getElementById(TOAST_ID);
+  if (toast) toast.remove();
 }
 
 function render({ title, body, button, onButton }) {
@@ -51,8 +54,27 @@ function render({ title, body, button, onButton }) {
   return overlay;
 }
 
+// Processing is the one terminal, informational placement state ("All set... you
+// can close this page"). Unlike the active finishing/confirmed/manual/changed
+// screens, it does not need to block a second submit, so it shows as a small,
+// non-blocking corner toast instead of a full-page card.
 export function showProcessing() {
-  return render({ title: t('placement_processing_title'), body: t('placement_processing_body') });
+  removePlacementOverlay();
+  const toast = document.createElement('div');
+  toast.id = TOAST_ID;
+  const title = document.createElement('div');
+  title.className = 'parago-pl-toast-title';
+  title.textContent = t('placement_processing_title');
+  toast.appendChild(title);
+  const bodyText = t('placement_processing_body');
+  if (bodyText) {
+    const b = document.createElement('div');
+    b.className = 'parago-pl-toast-body';
+    b.textContent = bodyText;
+    toast.appendChild(b);
+  }
+  document.body.appendChild(toast);
+  return toast;
 }
 export function showFinishing() {
   return render({ title: t('placement_finishing') });
