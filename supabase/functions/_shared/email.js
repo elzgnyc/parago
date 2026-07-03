@@ -72,9 +72,13 @@ export function buildBrevoPayload({ senderEmail, senderName, guardianEmail, guar
     return `- ${o.title || 'Item'}${price}${qty}${rating}`;
   }).join('\n');
 
-  const subject = `Approve a purchase: $${totalStr}`;
+  // Name the first item (and a "+N more" count) in the subject, so a guardian with
+  // several pending requests can tell them apart at a glance instead of "a purchase".
+  const firstTitle = ((list[0] && list[0].title) ? String(list[0].title) : '').replace(/\s+/g, ' ').trim().slice(0, 60);
+  const moreCount = list.length > 1 ? ` (+${list.length - 1} more)` : '';
+  const subject = firstTitle ? `Approve $${totalStr}: ${firstTitle}${moreCount}` : `Approve a purchase: $${totalStr}`;
   const htmlContent =
-    `<p>${guardianName ? escapeHtml(guardianName) + ', a' : 'A'} purchase needs your approval.</p>` +
+    `<p>A purchase needs your approval.</p>` +
     `<p><strong>Total: $${totalStr}</strong></p>` +
     `<ul>${itemsHtml}</ul>` +
     `<p><a href="${link}">Review and approve or reject</a></p>` +

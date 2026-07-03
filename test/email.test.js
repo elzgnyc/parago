@@ -31,6 +31,12 @@ describe('buildBrevoPayload', () => {
   it('puts the total in the subject', () => {
     expect(buildBrevoPayload(opts).subject).toContain('42.50');
   });
+  it('names the first item and the extra count in the subject', () => {
+    const p = buildBrevoPayload(opts);
+    expect(p.subject).toContain('Reading glasses'); // first item, so multiple requests are distinguishable
+    expect(p.subject).toContain('(+1 more)');       // opts has 2 items
+    expect(p.subject).toContain('42.50');
+  });
   it('includes the approval link and item titles in the HTML and text', () => {
     const p = buildBrevoPayload(opts);
     expect(p.htmlContent).toContain(opts.link);

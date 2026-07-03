@@ -40,35 +40,39 @@ function stars(rating, reviewCount) {
   return `${s} ${cr.toFixed(1)}${count}`;
 }
 
-const MAX_ITEMS_IN_CAPTION = 6;
+const MAX_ITEMS_IN_CAPTION = 8;
 const CAPTION_LIMIT = 1024; // Telegram sendPhoto caption hard limit
 
 // Build the sendPhoto (or sendMessage) call for one approval request. Leads with a
 // product photo when an item has an http(s) image; the "See full details" button
 // opens approve.html for the full, rich, tap-through-to-Amazon view. Approve/Reject
 // are inline callback buttons carrying the single-use token.
-export function buildTelegramMessage({ chatId, total, items, link, guardianName, token }) {
+export function buildTelegramMessage({ chatId, total, items, link, token }) {
   const list = Array.isArray(items) ? items : [];
   const totalStr = fmtMoney(total);
-  const who = clean(guardianName);
-  const header = (who ? `${who}, a` : 'A') + ' purchase needs your approval.';
-  const totalLine = totalStr ? `Total: ${totalStr}` : '';
 
+  // No approver name, no "tap the buttons" line (the buttons are right there). Items
+  // are numbered, one per block, with an indented price/qty/rating line, so a large
+  // cart stays readable. The "See full details" button carries images + full info.
   const shown = list.slice(0, MAX_ITEMS_IN_CAPTION);
-  const lines = shown.map((it) => {
+  const parts = ['A purchase needs your approval.'];
+  if (totalStr) parts.push('', `Total: ${totalStr}`);
+  parts.push('');
+  shown.forEach((it, i) => {
     const o = it || {};
     const title = clean(o.title) || 'Item';
-    const price = (typeof o.price === 'number') ? ' ' + fmtMoney(o.price) : '';
     const qtyNum = Number(o.qty);
-    const qty = (Number.isFinite(qtyNum) && qtyNum > 1) ? ` x${qtyNum}` : '';
+    const qty = (Number.isFinite(qtyNum) && qtyNum > 1) ? qtyNum : 1;
+    const price = (typeof o.price === 'number') ? fmtMoney(o.price) : '';
     const meta = stars(o.rating, o.reviewCount);
-    return `- ${title}${price}${qty}${meta ? '  ' + meta : ''}`;
+    parts.push(`${i + 1}. ${title}`);
+    const detail = [price && (qty > 1 ? `${price} ×${qty}` : price), meta].filter(Boolean).join('    ');
+    if (detail) parts.push(`    ${detail}`);
   });
-  const more = list.length > shown.length ? `...and ${list.length - shown.length} more` : '';
+  const extra = list.length - shown.length;
+  if (extra > 0) parts.push('', `+${extra} more item${extra > 1 ? 's' : ''}`);
 
-  let text = [header, totalLine, '', ...lines, more, '', 'Tap Approve or Reject below, or open See full details for photos and links.']
-    .filter((s) => s !== '')
-    .join('\n');
+  let text = parts.join('\n');
   if (text.length > CAPTION_LIMIT) text = text.slice(0, CAPTION_LIMIT - 1) + '…';
 
   const reply_markup = {

@@ -20,12 +20,18 @@ describe('buildTelegramMessage', () => {
     expect(m.payload.photo).toBe('https://m.media-amazon.com/images/I/abc.jpg');
     expect(m.payload.chat_id).toBe(12345);
   });
-  it('caption carries greeting, total, and every shown item title', () => {
-    const c = buildTelegramMessage(base).payload.caption;
-    expect(c).toContain('Mom');
+  it('caption has the header, total, and item titles, but not the approver name', () => {
+    const c = buildTelegramMessage({ ...base, guardianName: 'Mom' }).payload.caption;
+    expect(c).toContain('A purchase needs your approval.');
+    expect(c).not.toContain('Mom'); // approver name is not put in the message
     expect(c).toContain('47.98');
     expect(c).toContain('Anker USB-C Cable');
     expect(c).toContain('Logitech Mouse');
+  });
+  it('numbers the items', () => {
+    const c = buildTelegramMessage(base).payload.caption;
+    expect(c).toContain('1. Anker USB-C Cable');
+    expect(c).toContain('2. Logitech Mouse');
   });
   it('inline keyboard has approve/reject callbacks and a details url', () => {
     const kb = buildTelegramMessage(base).payload.reply_markup.inline_keyboard;
@@ -44,9 +50,9 @@ describe('buildTelegramMessage', () => {
     expect(m.payload.text).not.toContain('—');
   });
   it('truncates a long item list and notes the remainder', () => {
-    const many = Array.from({ length: 9 }, (_, i) => ({ title: 'Item ' + i, price: 1 }));
+    const many = Array.from({ length: 12 }, (_, i) => ({ title: 'Item ' + i, price: 1 }));
     const m = buildTelegramMessage({ ...base, items: many });
-    expect(m.payload.caption || m.payload.text).toContain('and 3 more');
+    expect(m.payload.caption || m.payload.text).toContain('+4 more items');
   });
   it('callback_data stays within Telegram 64-byte limit for a real token', () => {
     const realToken = 'a'.repeat(43); // 32 bytes base64url
@@ -58,12 +64,6 @@ describe('buildTelegramMessage', () => {
     const caption = m.payload.caption || m.payload.text;
     expect(caption).not.toMatch(/\nTotal: \$2\.00/); // the injected line is neutralized
     expect(caption).toContain('Total: $500.00');     // the real total survives
-  });
-  it('strips newlines/control chars from guardianName', () => {
-    const m = buildTelegramMessage({ ...base, guardianName: 'Mom\r\nInjected line', items: [{ title: 'X' }] });
-    const caption = m.payload.caption || m.payload.text;
-    expect(caption).not.toContain('\nInjected');
-    expect(caption).toContain('Mom');
   });
 });
 
