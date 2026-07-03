@@ -36,9 +36,17 @@ body.options { padding: 40px 28px 56px; }
 /* Options: pack the cards into two columns so the page fills the width instead of
    running as one tall column. break-inside keeps each card whole; falls back to a
    single column on narrow windows. */
-.cards { column-count: 2; column-gap: 24px; }
-.cards > .card { break-inside: avoid; }
-@media (max-width: 720px) { .cards { column-count: 1; } }
+/* A stable two-column grid: cards keep their column, so expanding one (e.g. the
+   Telegram details) grows only its own cell instead of re-balancing the whole page
+   the way CSS multi-columns did. */
+.cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  align-items: start;
+}
+.cards > .card { margin-bottom: 0; }
+@media (max-width: 720px) { .cards { grid-template-columns: 1fr; } }
 
 /* Brand header */
 .brand { display: flex; align-items: center; gap: 13px; margin-bottom: 22px; }
