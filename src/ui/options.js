@@ -31,6 +31,13 @@ function applyMethodVisibility(method) {
   }
 }
 
+// The spending limit only applies to the "only over a spending limit" mode, so the
+// field is hidden for Off / For every order.
+function applyGuardianModeVisibility(mode) {
+  const el = document.getElementById('guardianLimitField');
+  if (el) el.hidden = mode !== 'over_limit';
+}
+
 // ── Telegram linking ────────────────────────────────────────────────────────────
 // The install holds an opaque code; the guardian binds it to their chat by tapping
 // t.me/<bot>?start=<code> and pressing Start. We fetch the bot username from the
@@ -220,6 +227,7 @@ function load(settings) {
   document.getElementById('functionsBaseUrl').value = settings.functionsBaseUrl || '';
   document.getElementById('devMode').checked = settings.devMode;
   applyMethodVisibility(settings.deliveryMethod || 'email');
+  applyGuardianModeVisibility(settings.guardianMode);
   if (settings.telegramLinked) { tgStatus(t('tg_connected')); showTgReset(); }
   setLang(settings.lang);
   applyI18n();
@@ -262,6 +270,7 @@ async function save() {
   document.getElementById('guardianLimit').value = patch.guardianLimit;
   renderStars(patch.minStars);
   applyMethodVisibility(patch.deliveryMethod);
+  applyGuardianModeVisibility(patch.guardianMode);
   setLang(patch.lang);
   applyI18n();
   flash();

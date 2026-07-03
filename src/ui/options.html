@@ -14,6 +14,7 @@
       <h1>Parago</h1>
     </header>
 
+    <div class="cards">
     <section class="card">
       <h2 class="card-title" data-i18n="section_filtering">Search filtering</h2>
 
@@ -85,7 +86,7 @@
         </select>
       </div>
 
-      <div class="field">
+      <div class="field" id="guardianLimitField">
         <label for="guardianLimit" data-i18n="label_guardian_limit">Spending limit</label>
         <input type="number" id="guardianLimit" min="0" step="1" />
       </div>
@@ -99,7 +100,7 @@
         <label for="deliveryMethod" data-i18n="label_delivery_method">How to reach the approver</label>
         <select id="deliveryMethod">
           <option value="email" data-i18n="delivery_email">Email</option>
-          <option value="telegram" data-i18n="delivery_telegram">Telegram (coming soon)</option>
+          <option value="telegram" data-i18n="delivery_telegram">Telegram</option>
         </select>
       </div>
 
@@ -135,6 +136,7 @@
       </div>
       <p class="field-hint">Adds a panel on Amazon pages to preview the approval overlays and send a real test email with a fake cart. Nothing is ever bought.</p>
     </section>
+    </div>
 
     <div class="actions">
       <span class="saved" id="saved" aria-live="polite"></span>
