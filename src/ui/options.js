@@ -4,9 +4,18 @@ import { setLang, t } from '../i18n/i18n.js';
 const fields = [
   'lang', 'minStars', 'minRatings', 'mode',
   'hideSponsored', 'flagLowRating', 'flagFewRatings', 'flagNonPrime', 'hoverReveal',
-  'guardianMode', 'guardianLimit', 'guardianName', 'guardianEmail', 'functionsBaseUrl',
+  'guardianMode', 'guardianLimit', 'guardianName', 'deliveryMethod', 'guardianEmail', 'functionsBaseUrl',
   'devMode',
 ];
+
+// Show only the fields for the selected delivery method; the others stay in the
+// DOM (and their stored values persist) but are hidden. This is what makes
+// swapping the selector never clear the other method's config.
+function applyMethodVisibility(method) {
+  for (const el of document.querySelectorAll('[data-method]')) {
+    el.hidden = el.getAttribute('data-method') !== method;
+  }
+}
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const STAR_PATH = 'M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z';
@@ -111,9 +120,11 @@ function load(settings) {
   document.getElementById('guardianMode').value = settings.guardianMode;
   document.getElementById('guardianLimit').value = settings.guardianLimit;
   document.getElementById('guardianName').value = settings.guardianName;
+  document.getElementById('deliveryMethod').value = settings.deliveryMethod || 'email';
   document.getElementById('guardianEmail').value = settings.guardianEmail;
   document.getElementById('functionsBaseUrl').value = settings.functionsBaseUrl || '';
   document.getElementById('devMode').checked = settings.devMode;
+  applyMethodVisibility(settings.deliveryMethod || 'email');
   setLang(settings.lang);
   applyI18n();
   renderStars(settings.minStars);
@@ -134,6 +145,7 @@ function readForm() {
     guardianMode: document.getElementById('guardianMode').value,
     guardianLimit: Math.round(toFinite(document.getElementById('guardianLimit').value, DEFAULTS.guardianLimit, 0, Infinity)),
     guardianName: document.getElementById('guardianName').value,
+    deliveryMethod: document.getElementById('deliveryMethod').value,
     guardianEmail: document.getElementById('guardianEmail').value.trim(),
     functionsBaseUrl: document.getElementById('functionsBaseUrl').value.trim(),
     devMode: document.getElementById('devMode').checked,
@@ -153,6 +165,7 @@ async function save() {
   document.getElementById('minRatings').value = patch.minRatings;
   document.getElementById('guardianLimit').value = patch.guardianLimit;
   renderStars(patch.minStars);
+  applyMethodVisibility(patch.deliveryMethod);
   setLang(patch.lang);
   applyI18n();
   flash();

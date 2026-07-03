@@ -96,8 +96,20 @@
       </div>
 
       <div class="field">
+        <label for="deliveryMethod" data-i18n="label_delivery_method">How to reach the approver</label>
+        <select id="deliveryMethod">
+          <option value="email" data-i18n="delivery_email">Email</option>
+          <option value="telegram" data-i18n="delivery_telegram">Telegram (coming soon)</option>
+        </select>
+      </div>
+
+      <div class="field" data-method="email">
         <label for="guardianEmail" data-i18n="label_guardian_email">Approver's email</label>
         <input type="email" id="guardianEmail" />
+      </div>
+
+      <div data-method="telegram">
+        <p class="field-hint" data-i18n="hint_telegram_soon">Telegram delivery is not active yet. One-tap Approve/Reject in Telegram is coming next; approval falls back to the on-page popup until then.</p>
       </div>
 
       <div class="field">

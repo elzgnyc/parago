@@ -23,6 +23,18 @@ describe('shouldUseSupabase', () => {
     const settings = { guardianEmail: 'h@e.com', functionsBaseUrl: 'not a url' };
     expect(shouldUseSupabase(settings, cfg)).toBe(false);
   });
+
+  // Delivery method: round one only 'email' has a transport. A telegram selection
+  // must not use the email relay; the call site falls back to local popup approval.
+  it('email is the default method: absent deliveryMethod behaves as email', () => {
+    expect(shouldUseSupabase({ guardianEmail: 'h@e.com' }, cfg)).toBe(true);
+  });
+  it('true when deliveryMethod is explicitly email', () => {
+    expect(shouldUseSupabase({ deliveryMethod: 'email', guardianEmail: 'h@e.com' }, cfg)).toBe(true);
+  });
+  it('false when deliveryMethod is telegram (no backend yet, fall back to popup)', () => {
+    expect(shouldUseSupabase({ deliveryMethod: 'telegram', guardianEmail: 'h@e.com' }, cfg)).toBe(false);
+  });
 });
 
 describe('resolveFunctionsBaseUrl', () => {

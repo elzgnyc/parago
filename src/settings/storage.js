@@ -11,7 +11,10 @@ export const DEFAULTS = {
   guardianMode: 'off',  // 'off' | 'always' | 'over_limit'
   guardianLimit: 50,    // approval required above this total when over_limit
   guardianName: '',     // label for whoever approves
-  guardianEmail: '',    // where approval emails are sent (required for remote approval)
+  deliveryMethod: 'email', // how the approver is reached: 'email' | 'telegram'. Per-method config below persists independently, so switching never clears the other.
+  guardianEmail: '',    // email delivery: where approval emails are sent
+  telegramChatId: '',   // telegram delivery: linked chat id (set by linking, round two)
+  telegramLinked: false,// telegram delivery: true once the guardian completes linking
   functionsBaseUrl: '', // Supabase Edge Functions URL for email approval; set in Options (not code). Blank = local popup approval. Not a secret (it is the public project URL).
   lang: 'en',           // 'en' | 'vi'
   devMode: false,       // show the on-page Developer test panel (no real purchases)
