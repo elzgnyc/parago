@@ -56,21 +56,22 @@ async function refresh() {
   renderPending(await relay.listPending());
 }
 
-// Reflect protection state on the power button. "On" means the search filter is doing
+// Reflect protection state on the header switch. "On" means the search filter is doing
 // something (mode is not 'off'); the toggle controls the filter only, never guardian.
 function renderPower(settings) {
   const on = settings.mode !== 'off';
-  const btn = document.getElementById('power');
-  btn.setAttribute('aria-pressed', String(on));
-  btn.classList.toggle('is-off', !on);
+  const el = document.getElementById('power');
+  el.checked = on;
+  el.setAttribute('aria-label', on ? t('popup_status_on') : t('popup_status_off'));
   const statusEl = document.getElementById('status');
-  statusEl.textContent = on ? t('popup_status_on') : t('popup_status_off');
-  statusEl.classList.toggle('is-off', !on);
+  if (statusEl) {
+    statusEl.textContent = on ? t('popup_status_on') : t('popup_status_off');
+    statusEl.classList.toggle('is-off', !on);
+  }
 }
 
-// uBlock-style power button: flip the display mode between 'off' and the last non-off
-// mode (see nextModePatch). preferredMode remembers grey-vs-hide so turning protection
-// back on restores the user's choice.
+// Flip the display mode between 'off' and the last non-off mode (see nextModePatch).
+// preferredMode remembers grey-vs-hide so turning protection back on restores the choice.
 async function togglePower() {
   await setSettings(nextModePatch(await getSettings()));
   renderPower(await getSettings());
@@ -84,8 +85,7 @@ async function main() {
     el.textContent = t(el.getAttribute('data-i18n'));
   }
   const power = document.getElementById('power');
-  power.setAttribute('aria-label', t('popup_toggle_aria'));
-  power.addEventListener('click', togglePower);
+  power.addEventListener('change', togglePower);
   renderPower(settings);
   // Reflect changes made elsewhere (e.g. the Options page) while the popup is open.
   onSettingsChanged(() => getSettings().then(renderPower));

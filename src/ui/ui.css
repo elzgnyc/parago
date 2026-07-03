@@ -159,27 +159,34 @@ input.switch:focus-visible { box-shadow: 0 0 0 3px var(--accent-tint); }
 }
 .saved { color: var(--accent-strong); font-weight: 700; min-height: 1.4rem; }
 
-/* Popup power toggle (uBlock-style on/off). The single control for turning the
-   search filter on or off; no persistent toolbar badge. */
-.power {
-  display: flex; flex-direction: column; align-items: center;
-  gap: 12px; margin: 6px 0 20px;
-}
-.power-btn {
-  width: 96px; height: 96px; border-radius: 50%;
-  border: 0; cursor: pointer;
+/* Popup header: logo + name on the left, a compact protection switch + settings gear
+   on the right. The switch controls the search filter on/off, nothing else. */
+.pop-head { display: flex; align-items: center; gap: 10px; margin: -2px 0 16px; }
+.pop-mark {
+  flex: 0 0 auto; width: 26px; height: 26px;
   display: grid; place-items: center;
-  color: #fff; background: var(--accent);
-  box-shadow: var(--shadow), inset 0 0 0 1px rgba(255, 255, 255, 0.12);
-  transition: background 0.15s, transform 0.05s, box-shadow 0.15s;
+  color: #fff; background: var(--accent); border-radius: 8px;
 }
-.power-btn:hover { background: var(--accent-strong); }
-.power-btn:active { transform: translateY(1px); }
-.power-btn:focus-visible { outline: 3px solid var(--accent-tint); outline-offset: 3px; }
-.power-btn.is-off { background: #c7bdae; }
-.power-icon { fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; }
-.power-status { margin: 0; font-weight: 700; font-size: 1.1rem; }
-.power-status.is-off { color: var(--ink-soft); }
+.pop-name {
+  font-family: var(--font-display); font-weight: 600; font-size: 1.15rem;
+  letter-spacing: -0.01em;
+}
+.pop-status { margin-left: auto; font-size: 0.78rem; font-weight: 700; color: var(--accent-strong); }
+.pop-status.is-off { color: var(--ink-soft); }
+.pop-switch { flex: 0 0 auto; width: 44px; height: 24px; }
+.pop-switch::before { width: 18px; height: 18px; top: 3px; left: 3px; }
+.pop-switch:checked::before { transform: translateX(20px); }
+.pop-icon-btn {
+  flex: 0 0 auto; display: grid; place-items: center;
+  width: 32px; height: 32px; padding: 0;
+  border: 0; background: transparent; color: var(--ink-soft);
+  border-radius: 8px; cursor: pointer;
+}
+.pop-icon-btn:hover { background: var(--accent-tint); color: var(--accent-strong); }
+.pop-icon-btn:focus-visible { outline: 3px solid var(--accent-tint); outline-offset: 1px; }
+
+/* Orders waiting section */
+.pop-orders-title { margin: 0 0 8px; font-family: var(--font-display); font-weight: 600; font-size: 1.02rem; }
 
 .btn-block { width: 100%; }
 
