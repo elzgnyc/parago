@@ -61,10 +61,15 @@ async function setupTelegramLink() {
   if (a) { a.href = url; a.textContent = url; }
   const area = document.getElementById('tgLinkArea');
   if (area) area.hidden = false;
+  showTgReset();
   tgStatus(t('tg_waiting'));
 
+  // Poll link-status until the guardian taps Start, then stop. Bounded so an
+  // Options tab left open never polls forever if they never connect.
   stopTgPoll();
+  const startedAt = Date.now();
   tgPoll = setInterval(async () => {
+    if (Date.now() - startedAt > 5 * 60 * 1000) { stopTgPoll(); tgStatus(t('tg_timeout')); return; }
     try {
       const r = await fetch(`${base}/telegram-webhook?action=link-status&code=${encodeURIComponent(code)}`);
       const j = await r.json();
@@ -75,6 +80,25 @@ async function setupTelegramLink() {
       }
     } catch (e) { /* transient: keep polling */ }
   }, 3000);
+}
+
+function showTgReset() {
+  const b = document.getElementById('tgResetBtn');
+  if (b) b.hidden = false;
+}
+
+// Rotate to a fresh link code and clear the linked flag so the approver can be
+// re-linked on a different device (the old code's server-side binding is simply
+// orphaned, never referenced again). Immediately starts a fresh link.
+async function resetTelegramLink() {
+  stopTgPoll();
+  await setSettings({ telegramLinkCode: '', telegramLinked: false });
+  const a = document.getElementById('tgLinkUrl');
+  if (a) { a.href = '#'; a.textContent = ''; }
+  const area = document.getElementById('tgLinkArea');
+  if (area) area.hidden = true;
+  tgStatus('');
+  await setupTelegramLink();
 }
 
 const SVGNS = 'http://www.w3.org/2000/svg';
@@ -185,7 +209,7 @@ function load(settings) {
   document.getElementById('functionsBaseUrl').value = settings.functionsBaseUrl || '';
   document.getElementById('devMode').checked = settings.devMode;
   applyMethodVisibility(settings.deliveryMethod || 'email');
-  if (settings.telegramLinked) tgStatus(t('tg_connected'));
+  if (settings.telegramLinked) { tgStatus(t('tg_connected')); showTgReset(); }
   setLang(settings.lang);
   applyI18n();
   renderStars(settings.minStars);
@@ -248,6 +272,7 @@ async function main() {
   }
   document.getElementById('reset').addEventListener('click', resetDefaults);
   document.getElementById('tgLinkBtn').addEventListener('click', setupTelegramLink);
+  document.getElementById('tgResetBtn').addEventListener('click', resetTelegramLink);
 }
 
 main();
