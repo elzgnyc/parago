@@ -41,6 +41,16 @@ Deno.serve(async (req) => {
       const { data } = await supabase.from('telegram_links').select('chat_id').eq('code', code).maybeSingle();
       return json({ linked: !!(data && data.chat_id) });
     }
+    // One-shot: register this function as the bot's webhook using the server-side
+    // secret, so the operator never handles the raw bot token. Idempotent: it always
+    // sets the canonical url + secret, so re-calling it just re-asserts the same config.
+    if (action === 'setup') {
+      const secret = Deno.env.get('TELEGRAM_WEBHOOK_SECRET');
+      if (!secret) return json({ ok: false, error: 'no_secret' }, 503);
+      const hookUrl = `https://${url.host}/telegram-webhook`; // Telegram requires https; the fn sees http internally
+      const result = await tg('setWebhook', { url: hookUrl, secret_token: secret, allowed_updates: ['message', 'callback_query'] });
+      return json({ url: hookUrl, result });
+    }
     return json({ error: 'bad_action' }, 400);
   }
 
