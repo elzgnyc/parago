@@ -1,4 +1,7 @@
 import { parseProductMeta } from './lib/parseProduct.js';
+import { getSettings } from './settings/storage.js';
+import { CONFIG } from './config.js';
+import { resolveFunctionsBaseUrl } from './relay/selectRelay.js';
 
 // MV3 background service worker. Content scripts can't make host-permission'd
 // cross-origin fetches in MV3, so the relay sends a message here and we fetch.
@@ -52,3 +55,25 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 
 // No toolbar badge. Protection on/off is shown only in the popup power toggle, so the
 // toolbar icon stays plain (the persistent green badge was removed by request).
+
+// Supabase keepalive. The free tier pauses a project after ~7 days of no activity,
+// which silently breaks email approval. A periodic ping (a clean DB read via
+// get-status with a valid but nonexistent uuid) keeps it warm. This fires only
+// while the browser is running; the scheduled GitHub Action in
+// .github/workflows/keepalive.yml is the 24/7 backstop for when it is closed.
+const KEEPALIVE_ALARM = 'parago_keepalive';
+const KEEPALIVE_PERIOD_MIN = 6 * 60; // every 6h while the browser is open
+const KEEPALIVE_UUID = '00000000-0000-0000-0000-000000000000'; // valid uuid, no row: clean 404 (the SELECT still runs)
+
+async function keepalivePing() {
+  try {
+    const base = resolveFunctionsBaseUrl(await getSettings(), CONFIG);
+    if (!/^https?:\/\//i.test(base) || base.includes('<PROJECT_REF>')) return; // backend not configured
+    await fetch(`${base}/get-status?id=${KEEPALIVE_UUID}`).catch(() => {});
+  } catch (e) { /* no-op: keepalive is best-effort */ }
+}
+
+if (typeof chrome !== 'undefined' && chrome.alarms) {
+  chrome.alarms.create(KEEPALIVE_ALARM, { periodInMinutes: KEEPALIVE_PERIOD_MIN, delayInMinutes: 1 });
+  chrome.alarms.onAlarm.addListener((a) => { if (a && a.name === KEEPALIVE_ALARM) keepalivePing(); });
+}

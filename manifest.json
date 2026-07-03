@@ -3,7 +3,7 @@
   "name": "Parago",
   "version": "0.1.0",
   "description": "Shopping filter for Amazon. Hides or flags low-quality and sponsored search results.",
-  "permissions": ["storage"],
+  "permissions": ["storage", "alarms"],
   "host_permissions": ["*://*.amazon.com/*", "https://*.functions.supabase.co/*"],
   "background": { "service_worker": "dist/background.js" },
   "content_scripts": [
