@@ -54,4 +54,12 @@ describe('resolveFunctionsBaseUrl', () => {
   it('returns empty string when neither is set', () => {
     expect(resolveFunctionsBaseUrl({}, {})).toBe('');
   });
+  it('normalizes a pasted project URL to the Edge Functions URL', () => {
+    expect(resolveFunctionsBaseUrl({ functionsBaseUrl: 'https://ref123.supabase.co' }, {}))
+      .toBe('https://ref123.functions.supabase.co');
+  });
+  it('leaves an already-correct functions URL unchanged', () => {
+    expect(resolveFunctionsBaseUrl({ functionsBaseUrl: 'https://ref123.functions.supabase.co' }, {}))
+      .toBe('https://ref123.functions.supabase.co');
+  });
 });

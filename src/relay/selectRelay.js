@@ -5,7 +5,14 @@
 export function resolveFunctionsBaseUrl(settings, config) {
   const fromSettings = settings && typeof settings.functionsBaseUrl === 'string' && settings.functionsBaseUrl.trim();
   const fromConfig = config && config.functionsBaseUrl;
-  return String(fromSettings || fromConfig || '').replace(/\/+$/, '');
+  let base = String(fromSettings || fromConfig || '').replace(/\/+$/, '');
+  // Accept the project URL and normalize it. Users routinely paste the Project
+  // Settings > API URL (https://<ref>.supabase.co) instead of the Edge Functions
+  // URL (https://<ref>.functions.supabase.co); calling the former CORS-fails and
+  // hits no function. Rewrite <ref>.supabase.co -> <ref>.functions.supabase.co.
+  // An already-correct .functions.supabase.co URL does not match and is left as-is.
+  base = base.replace(/^(https?:\/\/[a-z0-9-]+)\.supabase\.co/i, '$1.functions.supabase.co');
+  return base;
 }
 
 // Use the remote (email) relay only when we can actually send: a usable https
