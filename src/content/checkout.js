@@ -6,7 +6,7 @@ import { isApprovedForTotal, recordApproval } from '../lib/approval.js';
 import { MockRelay } from '../relay/mockRelay.js';
 import { SupabaseRelay } from '../relay/supabaseRelay.js';
 import { CONFIG } from '../config.js';
-import { shouldUseSupabase } from '../relay/selectRelay.js';
+import { shouldUseSupabase, resolveFunctionsBaseUrl } from '../relay/selectRelay.js';
 import { RELAY_STATUS } from '../relay/relayClient.js';
 import { showOverlay, setOverlayStatus, removeOverlay } from './overlay.js';
 import { parseFinalOrderTotal, isPlaceOrderClick, findPlaceOrderControl } from '../lib/placeOrder.js';
@@ -60,7 +60,7 @@ export async function enrichItems(items, { timeoutMs = 2000 } = {}) {
 function buildRelay(settings) {
   if (shouldUseSupabase(settings, CONFIG)) {
     return new SupabaseRelay({
-      baseUrl: CONFIG.functionsBaseUrl,
+      baseUrl: resolveFunctionsBaseUrl(settings, CONFIG),
       guardianEmail: settings.guardianEmail,
       guardianName: settings.guardianName,
     });

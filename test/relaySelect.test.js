@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { shouldUseSupabase } from '../src/relay/selectRelay.js';
+import { shouldUseSupabase, resolveFunctionsBaseUrl } from '../src/relay/selectRelay.js';
 
 describe('shouldUseSupabase', () => {
   const cfg = { functionsBaseUrl: 'https://x.functions.supabase.co' };
@@ -11,5 +11,31 @@ describe('shouldUseSupabase', () => {
   });
   it('false when the base URL is the unreplaced placeholder', () => {
     expect(shouldUseSupabase({ guardianEmail: 'h@e.com' }, { functionsBaseUrl: 'https://<PROJECT_REF>.functions.supabase.co' })).toBe(false);
+  });
+
+  // The in-extension Options field lets a machine be pointed at a project without
+  // editing code; a value there overrides the baked config.js default.
+  it('true from the Options field (settings.functionsBaseUrl) even when config is a placeholder', () => {
+    const settings = { guardianEmail: 'h@e.com', functionsBaseUrl: 'https://ref.functions.supabase.co' };
+    expect(shouldUseSupabase(settings, { functionsBaseUrl: 'https://<PROJECT_REF>.functions.supabase.co' })).toBe(true);
+  });
+  it('false when the Options field holds a malformed URL (fails safe, no fetch)', () => {
+    const settings = { guardianEmail: 'h@e.com', functionsBaseUrl: 'not a url' };
+    expect(shouldUseSupabase(settings, cfg)).toBe(false);
+  });
+});
+
+describe('resolveFunctionsBaseUrl', () => {
+  it('prefers the Options field over config and trims a trailing slash', () => {
+    const settings = { functionsBaseUrl: 'https://ref.functions.supabase.co/' };
+    expect(resolveFunctionsBaseUrl(settings, { functionsBaseUrl: 'https://baked.functions.supabase.co' }))
+      .toBe('https://ref.functions.supabase.co');
+  });
+  it('falls back to config when the Options field is blank', () => {
+    expect(resolveFunctionsBaseUrl({ functionsBaseUrl: '   ' }, { functionsBaseUrl: 'https://baked.functions.supabase.co' }))
+      .toBe('https://baked.functions.supabase.co');
+  });
+  it('returns empty string when neither is set', () => {
+    expect(resolveFunctionsBaseUrl({}, {})).toBe('');
   });
 });

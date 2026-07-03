@@ -11,7 +11,7 @@ import {
   showManualFallback, showOrderChanged, removePlacementOverlay,
 } from './placementOverlay.js';
 import { SupabaseRelay } from '../relay/supabaseRelay.js';
-import { shouldUseSupabase } from '../relay/selectRelay.js';
+import { shouldUseSupabase, resolveFunctionsBaseUrl } from '../relay/selectRelay.js';
 import { CONFIG } from '../config.js';
 import { SAMPLE_CART } from './devSample.js';
 import { parseCart } from '../lib/parseCart.js';
@@ -121,7 +121,7 @@ async function sendTestEmail() {
     return;
   }
   const relay = new SupabaseRelay({
-    baseUrl: CONFIG.functionsBaseUrl,
+    baseUrl: resolveFunctionsBaseUrl(currentSettings, CONFIG),
     guardianEmail: currentSettings.guardianEmail,
     guardianName: currentSettings.guardianName,
   });

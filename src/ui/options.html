@@ -99,6 +99,12 @@
         <label for="guardianEmail" data-i18n="label_guardian_email">Approver's email</label>
         <input type="email" id="guardianEmail" />
       </div>
+
+      <div class="field">
+        <label for="functionsBaseUrl" data-i18n="label_functions_url">Email backend URL</label>
+        <input type="url" id="functionsBaseUrl" placeholder="https://YOUR-REF.functions.supabase.co" />
+      </div>
+      <p class="field-hint" data-i18n="hint_functions_url">Needed to send approval emails. Paste your Supabase project's Edge Functions URL (it looks like https://YOUR-REF.functions.supabase.co). Leave blank to use local popup approval on this device. The Brevo key and Supabase service-role key stay on the server and are never entered here.</p>
     </section>
 
     <section class="card">

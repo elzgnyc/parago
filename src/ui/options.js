@@ -4,7 +4,7 @@ import { setLang, t } from '../i18n/i18n.js';
 const fields = [
   'lang', 'minStars', 'minRatings', 'mode',
   'hideSponsored', 'flagLowRating', 'flagFewRatings', 'flagNonPrime', 'hoverReveal',
-  'guardianMode', 'guardianLimit', 'guardianName', 'guardianEmail',
+  'guardianMode', 'guardianLimit', 'guardianName', 'guardianEmail', 'functionsBaseUrl',
   'devMode',
 ];
 
@@ -112,6 +112,7 @@ function load(settings) {
   document.getElementById('guardianLimit').value = settings.guardianLimit;
   document.getElementById('guardianName').value = settings.guardianName;
   document.getElementById('guardianEmail').value = settings.guardianEmail;
+  document.getElementById('functionsBaseUrl').value = settings.functionsBaseUrl || '';
   document.getElementById('devMode').checked = settings.devMode;
   setLang(settings.lang);
   applyI18n();
@@ -134,6 +135,7 @@ function readForm() {
     guardianLimit: Math.round(toFinite(document.getElementById('guardianLimit').value, DEFAULTS.guardianLimit, 0, Infinity)),
     guardianName: document.getElementById('guardianName').value,
     guardianEmail: document.getElementById('guardianEmail').value.trim(),
+    functionsBaseUrl: document.getElementById('functionsBaseUrl').value.trim(),
     devMode: document.getElementById('devMode').checked,
   };
 }
