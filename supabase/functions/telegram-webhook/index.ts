@@ -38,8 +38,8 @@ Deno.serve(async (req) => {
     if (action === 'link-status') {
       const code = url.searchParams.get('code') || '';
       if (!code) return json({ linked: false });
-      const { data } = await supabase.from('telegram_links').select('chat_id').eq('code', code).maybeSingle();
-      return json({ linked: !!(data && data.chat_id) });
+      const { data } = await supabase.from('telegram_links').select('chat_id, chat_name').eq('code', code).maybeSingle();
+      return json({ linked: !!(data && data.chat_id), name: (data && data.chat_name) || null });
     }
     return json({ error: 'bad_action' }, 400);
   }
@@ -63,7 +63,11 @@ Deno.serve(async (req) => {
   // trying to claim an already-bound code is refused (the shopper rotates the code
   // in the extension to re-link a new device).
   if (update.message && typeof update.message.text === 'string') {
-    const chatId = update.message.chat && update.message.chat.id;
+    const chat = update.message.chat || {};
+    const chatId = chat.id;
+    // Display name of the connecting chat, so the extension can show which account is
+    // linked. Private chats carry first/last name; fall back to username.
+    const chatName = [chat.first_name, chat.last_name].filter(Boolean).join(' ') || chat.username || null;
     const text = update.message.text.trim();
     if (text.startsWith('/start')) {
       const code = text.slice('/start'.length).trim();
@@ -77,7 +81,7 @@ Deno.serve(async (req) => {
       // be last-write-wins and silently let a second chat steal the binding.
       await supabase.from('telegram_links').upsert({ code }, { onConflict: 'code', ignoreDuplicates: true });
       const { data: bound } = await supabase.from('telegram_links')
-        .update({ chat_id: chatId, bound_at: new Date().toISOString() })
+        .update({ chat_id: chatId, chat_name: chatName, bound_at: new Date().toISOString() })
         .eq('code', code).is('chat_id', null).select('chat_id');
       if (bound && bound.length) {
         await tg('sendMessage', { chat_id: chatId, text: 'Connected. Approval requests will appear here with Approve and Reject buttons.' });
