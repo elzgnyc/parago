@@ -5,7 +5,7 @@
 // row that is wired to NO real Amazon order, so approving it purchases nothing.
 import { getSettings, onSettingsChanged } from '../settings/storage.js';
 import { setLang } from '../i18n/i18n.js';
-import { showOverlay, setOverlayStatus, removeOverlay } from './overlay.js';
+import { removeOverlay } from './overlay.js';
 import {
   showProcessing, showFinishing, showConfirmed, showCouldNotComplete,
   showManualFallback, showOrderChanged, removePlacementOverlay,
@@ -97,24 +97,6 @@ function endDemo() {
   removeDemoBar();
 }
 
-// Demo 1: the approval-pending overlay, with controls to flip it through the
-// real approved / rejected states a guardian decision would trigger.
-async function demoApproval() {
-  setLang(currentSettings.lang);
-  const cart = await currentCart();
-  showOverlay({
-    items: cart.items,
-    total: cart.total,
-    guardianName: currentSettings.guardianName || 'Mom',
-    status: 'pending',
-  });
-  showDemoBar([
-    { label: 'Approve', onClick: () => setOverlayStatus('approved') },
-    { label: 'Reject', onClick: () => setOverlayStatus('rejected') },
-    { label: 'Pending', onClick: () => setOverlayStatus('pending') },
-  ]);
-}
-
 // Demo 2: the place-order hold screens a shopper sees after we intercept the
 // real "Place your order" click. Each button paints one real overlay state.
 function demoPlaceOrder() {
@@ -180,7 +162,6 @@ function buildPanel() {
     b.addEventListener('click', onClick);
     return b;
   };
-  panel.appendChild(mk('Demo approval hold', demoApproval));
   // Label avoids the literal phrase "place order" so the real checkout intercept's
   // text-based control detector never mistakes this panel button for Amazon's.
   panel.appendChild(mk('Demo place-order screens', demoPlaceOrder));
