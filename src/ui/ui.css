@@ -22,9 +22,7 @@ body {
   margin: 0;
   font-family: var(--font-body);
   color: var(--ink);
-  background:
-    radial-gradient(130% 80% at 100% 0%, var(--accent-tint) 0%, rgba(231, 241, 238, 0) 46%),
-    var(--bg);
+  background: var(--bg);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
@@ -265,6 +263,13 @@ input.switch:focus-visible { box-shadow: 0 0 0 3px var(--accent-tint); }
 .seg-btn:focus-visible { outline: 3px solid var(--accent-tint); outline-offset: 2px; }
 .seg-ic { display: inline-grid; place-items: center; }
 .seg-onoff .seg-btn { min-width: 48px; justify-content: center; padding: 6px 4px; }
+
+/* Dot next to a setting that has been changed from its default. */
+label.is-changed::after, .field-label.is-changed::after {
+  content: ""; display: inline-block; vertical-align: middle;
+  width: 6px; height: 6px; margin-left: 7px;
+  border-radius: 50%; background: var(--accent);
+}
 
 /* Field label used where there is no form input to point <label> at */
 .field-label { font-weight: 600; }

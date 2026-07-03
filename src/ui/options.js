@@ -233,6 +233,24 @@ function settingsAreDefault(s) {
 function updateDirty() {
   document.getElementById('reset').hidden = settingsAreDefault(readForm());
 }
+
+// Put a dot next to each setting whose value differs from its default.
+function markChanged() {
+  const cur = readForm();
+  const mark = (key, el) => {
+    if (el) el.classList.toggle('is-changed', JSON.stringify(cur[key]) !== JSON.stringify(DEFAULTS[key]));
+  };
+  for (const key of ['guardianMode', 'guardianLimit', 'mode', 'minStars', 'minRatings', 'guardianEmail', 'functionsBaseUrl', 'lang']) {
+    const ctrl = document.getElementById(key);
+    const field = ctrl && ctrl.closest('.field, .lang-row');
+    mark(key, field && field.querySelector('label, .field-label'));
+  }
+  for (const key of ['deliveryMethod', ...boolSegs]) {
+    const host = document.getElementById('seg-' + key);
+    const field = host && host.closest('.field');
+    mark(key, field && field.querySelector('.field-label, label'));
+  }
+}
 function applyI18n() {
   for (const el of document.querySelectorAll('[data-i18n]')) {
     el.textContent = t(el.getAttribute('data-i18n'));
@@ -259,6 +277,7 @@ function load(settings) {
   renderTelegramState(settings);
   renderStars(settings.minStars);
   updateDirty();
+  markChanged();
 }
 
 function readForm() {
@@ -303,6 +322,7 @@ async function save() {
   applyI18n();
   flash();
   updateDirty();
+  markChanged();
 }
 
 // Reset needs a second click to confirm.
