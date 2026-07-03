@@ -41,6 +41,18 @@ body.options { padding: 40px 28px 56px; }
 .cards { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
 .cards > .card { flex: 1 1 240px; margin-bottom: 0; }
 
+/* Graceful entrance: the panels slide down and fade in, staggered left to right. */
+@keyframes pgCardIn {
+  from { opacity: 0; transform: translateY(-16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.cards > .card { animation: pgCardIn 0.45s cubic-bezier(0.2, 0.7, 0.3, 1) both; }
+.cards > .card:nth-child(1) { animation-delay: 0.05s; }
+.cards > .card:nth-child(2) { animation-delay: 0.13s; }
+.cards > .card:nth-child(3) { animation-delay: 0.21s; }
+.cards > .card:nth-child(4) { animation-delay: 0.29s; }
+@media (prefers-reduced-motion: reduce) { .cards > .card { animation: none; } }
+
 /* Brand header */
 .brand { display: flex; align-items: center; gap: 13px; margin-bottom: 22px; }
 .options .brand { justify-content: space-between; }
