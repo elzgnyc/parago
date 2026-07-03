@@ -3,6 +3,16 @@ import { parseCart, parseCartItems, parseCartTotal } from '../src/lib/parseCart.
 
 afterEach(() => { document.body.innerHTML = ''; });
 
+describe('parseCartTotal label fallback', () => {
+  it('reads the price, not the item count, from a "Subtotal (N items): $X" row', () => {
+    // No known TOTAL_CONTAINERS, so the label-anchored fallback runs on the row text.
+    // parseCurrency grabs the first digit-run, so the "(3 items)" count must be stripped
+    // first or the total comes back as 3 instead of 59.97.
+    document.body.innerHTML = '<div><span>Subtotal (3 items): $59.97</span></div>';
+    expect(parseCartTotal(document)).toBe(59.97);
+  });
+});
+
 // Amazon's cart page renders the ACTIVE cart and a "Saved for later" section with
 // the SAME .sc-list-item[data-asin] markup. Only the active cart is being purchased,
 // so saved items must never leak into the parsed items (they show in the approval

@@ -52,6 +52,16 @@ function pressOn(btn) {
   return ev;
 }
 
+// A real user press fires pointerdown THEN click on the same control. This is the
+// sequence a lone synthetic click misses, where the pointerdown+click double-fire bug lives.
+function realPress(btn) {
+  const down = new MouseEvent('pointerdown', { bubbles: true, cancelable: true });
+  btn.dispatchEvent(down);
+  const click = new MouseEvent('click', { bubbles: true, cancelable: true });
+  btn.dispatchEvent(click);
+  return { down, click };
+}
+
 // Let the handler's awaited side effects (storage reads, relay submit) settle.
 async function flush() {
   for (let i = 0; i < 5; i++) await new Promise((r) => setTimeout(r, 0));
@@ -104,6 +114,42 @@ describe('place-order press → request approval + redirect to shopping', () => 
     // The single-use approval is now spent; the next same-total press must re-request.
     const ev2 = pressOn(btn);
     expect(ev2.defaultPrevented).toBe(true);
+    await flush();
+    expect(relay.submitRequest).toHaveBeenCalledTimes(1);
+  });
+
+  it('approved press: pointerdown AND the trailing click both pass through (not re-blocked)', async () => {
+    // Regression: onPlaceOrderPress binds both pointerdown and click. A real press fires
+    // both; the pointerdown consumed the approval and the click must NOT then re-block +
+    // duplicate-submit + redirect (which left the approved order unplaced on click-activated
+    // controls). See the bug-hunt HIGH finding.
+    const relay = { submitRequest: vi.fn(async () => 'idX'), getRequest: vi.fn() };
+    _setRelayForTest(relay);
+    const btn = placeOrderDom('80.00');
+    armPlaceOrderIntercept({ guardianMode: 'always', guardianLimit: 50 }, [{ total: 80 }]);
+
+    const { down, click } = realPress(btn);
+    await flush();
+    expect(down.defaultPrevented).toBe(false);
+    expect(click.defaultPrevented).toBe(false); // the trailing click is let through, not blocked
+    expect(relay.submitRequest).not.toHaveBeenCalled(); // no duplicate approval request
+    expect(navTo).toBe(null); // not bounced back to shopping
+  });
+
+  it('approved real press is still single-use: a second full press re-requests', async () => {
+    const relay = { submitRequest: vi.fn(async () => 'idY'), getRequest: vi.fn() };
+    _setRelayForTest(relay);
+    store.parago_approvals = [{ total: 80 }];
+    const btn = placeOrderDom('80.00');
+    armPlaceOrderIntercept({ guardianMode: 'always', guardianLimit: 50 }, [{ total: 80 }]);
+
+    const p1 = realPress(btn);
+    await flush();
+    expect(p1.click.defaultPrevented).toBe(false); // approved → placed
+    expect(relay.submitRequest).not.toHaveBeenCalled();
+
+    const p2 = realPress(btn);
+    expect(p2.down.defaultPrevented).toBe(true); // approval spent → re-blocked
     await flush();
     expect(relay.submitRequest).toHaveBeenCalledTimes(1);
   });
@@ -170,6 +216,19 @@ describe('reconcileApprovals (notify-only completion, never places)', () => {
 
     expect(store.parago_approvals).toEqual([]);
     expect(store.parago_outstanding).toEqual([]);
+  });
+
+  it('drops an expired request so it never deadlocks new requests for that total', async () => {
+    // Regression: 'expired' is a terminal status get-status returns at HTTP 200. If kept in
+    // outstanding, onPlaceOrderPress dedupes against it forever and never re-notifies.
+    store.parago_outstanding = [{ id: 'x1', total: 75 }];
+    store.parago_approvals = [];
+    _setRelayForTest({ getRequest: async (id) => ({ id, status: 'expired', total: 75 }) });
+
+    await reconcileApprovals();
+
+    expect(store.parago_approvals).toEqual([]);
+    expect(store.parago_outstanding).toEqual([]); // dropped, so a retry sends a fresh request
   });
 
   it('keeps a still-pending request and one that errored (transient)', async () => {

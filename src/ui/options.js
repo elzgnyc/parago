@@ -17,7 +17,18 @@ function applyMethodVisibility(method) {
   for (const el of document.querySelectorAll('[data-method]')) {
     el.hidden = el.getAttribute('data-method') !== method;
   }
-  if (method !== 'telegram') stopTgPoll(); // no need to poll link-status off the telegram tab
+  if (method === 'telegram') {
+    // Re-assert the connected state on return (the transient link UI is cleared on leave).
+    getSettings().then((s) => { if (s.telegramLinked) { tgStatus(t('tg_connected')); showTgReset(); } });
+  } else {
+    // Leaving telegram: stop the poll AND clear the transient link UI, so a stale
+    // "waiting" with a dead poll cannot reappear when we return (the poll only restarts
+    // on a fresh button click, which is the only thing that persists telegramLinked).
+    stopTgPoll();
+    const area = document.getElementById('tgLinkArea');
+    if (area) area.hidden = true;
+    tgStatus('');
+  }
 }
 
 // ── Telegram linking ────────────────────────────────────────────────────────────

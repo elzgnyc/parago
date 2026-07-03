@@ -80,10 +80,20 @@ Deno.serve(async (req) => {
   const link = `${approveBase}?token=${token}`;
 
   if (deliveryMethod === 'telegram') {
+    const botBase = `https://api.telegram.org/bot${Deno.env.get('TELEGRAM_BOT_TOKEN')}`;
     const msg = buildTelegramMessage({ chatId: telegramChatId, total, items, link, guardianName, token });
-    const res = await fetch(`https://api.telegram.org/bot${Deno.env.get('TELEGRAM_BOT_TOKEN')}/${msg.method}`, {
+    let res = await fetch(`${botBase}/${msg.method}`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(msg.payload),
     });
+    // If Telegram cannot fetch the product image (bad URL, size/type, hotlink block), the
+    // sendPhoto fails; fall back to a text-only message so the approval still gets through
+    // rather than 502-ing the whole request and leaving an orphan pending row.
+    if (!res.ok && msg.method === 'sendPhoto') {
+      res = await fetch(`${botBase}/sendMessage`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: telegramChatId, text: msg.payload.caption, reply_markup: msg.payload.reply_markup, disable_web_page_preview: true }),
+      });
+    }
     if (!res.ok) return json({ error: 'telegram_failed', detail: await res.text() }, 502);
     return json({ id: data.id });
   }

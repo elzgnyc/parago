@@ -128,6 +128,9 @@ export function _resetForTest() {
   armedSettings = null;
   armedApprovals = [];
   pressHandled = false;
+  letThroughPress = false;
+  clearTimeout(letThroughTimer);
+  armedSnapshotTotal = null;
   if (typeof document !== 'undefined') {
     document.removeEventListener('pointerdown', onPlaceOrderPress, true);
     document.removeEventListener('click', onPlaceOrderPress, true);
@@ -258,6 +261,17 @@ async function bestKnownPurchase(root = document) {
 let armedSettings = null;
 let armedApprovals = [];
 let pressHandled = false;
+// A real press fires pointerdown THEN click on the same control. When we let an
+// approved press through we consume the single-use approval on the FIRST event; this
+// one-shot flag lets the paired second event pass too, so the trailing click is not
+// re-evaluated (approval now gone) and wrongly blocked + resubmitted. Cleared by the
+// paired event, with a timer backstop if the press is cancelled and no click comes.
+let letThroughPress = false;
+let letThroughTimer = null;
+// Best-known cart total, preloaded from the snapshot at arm time, so the SYNC approval
+// gate has a stable total to match even on a page where the live total does not parse
+// (else a null total can never match an approval and the press re-holds forever).
+let armedSnapshotTotal = null;
 
 // One approval authorizes exactly one placement. Remove the first matching approval from
 // the in-memory armed list synchronously (so a repeat press in this same visit needs fresh
@@ -281,10 +295,12 @@ async function onPlaceOrderPress(ev) {
   // Once we've taken a press this visit, block every later place-order press too, so a
   // second tap during the request/redirect window can't reach Amazon unreviewed.
   if (pressHandled) { ev.preventDefault(); ev.stopImmediatePropagation(); return; }
+  // Paired event of a press we already approved-through: let it pass without re-deciding.
+  if (letThroughPress) { letThroughPress = false; clearTimeout(letThroughTimer); return; }
 
   const finalTotal = parseFinalOrderTotal(document);
   const parsed = parseCart(document);
-  const total = finalTotal != null ? finalTotal : parsed.total;
+  const total = finalTotal != null ? finalTotal : (parsed.total != null ? parsed.total : armedSnapshotTotal);
 
   if (!shouldRequireApproval(armedSettings, total)) return; // under limit / off → let Amazon place
 
@@ -292,7 +308,20 @@ async function onPlaceOrderPress(ev) {
   // prior visit): the gate is unlocked for ONE placement, so consume it and let the
   // shopper's own click through. Single-use is the point — without consuming, an approved
   // total would permanently unlock every future cart of that price (silent spend).
-  if (isApprovedForTotal(armedApprovals, total)) { consumeApproval(total); return; }
+  if (isApprovedForTotal(armedApprovals, total)) {
+    consumeApproval(total);
+    // A pointerdown is followed by a paired click on the same control; arm a one-shot
+    // so that click passes too, instead of being re-evaluated (approval now consumed)
+    // and wrongly blocked. A lone click IS the whole gesture, so nothing is armed and
+    // single-use still holds for the next separate press. Timer backstop for a
+    // cancelled press whose click never arrives.
+    if (ev.type === 'pointerdown') {
+      letThroughPress = true;
+      clearTimeout(letThroughTimer);
+      letThroughTimer = setTimeout(() => { letThroughPress = false; }, 1500);
+    }
+    return;
+  }
 
   // Approval required and not yet granted. Block this submit (synchronously, before any
   // await, so Amazon's own handler can't place it), request approval, then send the
@@ -320,6 +349,8 @@ export function armPlaceOrderIntercept(settings, approvals = []) {
   armedSettings = settings;
   armedApprovals = Array.isArray(approvals) ? approvals : [];
   pressHandled = false;
+  letThroughPress = false;
+  clearTimeout(letThroughTimer);
   // Capture phase so we run before Amazon's own submit handler.
   document.addEventListener('pointerdown', onPlaceOrderPress, true);
   document.addEventListener('click', onPlaceOrderPress, true);
@@ -354,16 +385,20 @@ export async function reconcileApprovals() {
     }
     if (!rec) continue; // not_found → drop
     if (rec.status === RELAY_STATUS.APPROVED) {
-      if (!isApprovedForTotal(approvals, o.total)) {
+      // Record the approval, but only for a real total (a null total can never be
+      // matched by isApprovedForTotal, so recording it just accumulates junk).
+      if (o.total != null && !isApprovedForTotal(approvals, o.total)) {
         approvals = recordApproval(approvals, o.total, Date.now());
         approvalsChanged = true;
       }
       // drop from outstanding: approval is now recorded locally
-    } else if (rec.status === RELAY_STATUS.REJECTED) {
-      // drop: a retry will create a fresh request
-    } else {
-      stillPending.push(o); // still pending → keep watching
+    } else if (rec.status === RELAY_STATUS.PENDING) {
+      stillPending.push(o); // genuinely still waiting → keep watching
     }
+    // else (rejected, EXPIRED, or any other terminal/unknown status) → drop. Keeping
+    // an expired hold would make onPlaceOrderPress dedupe against it forever and never
+    // send a fresh request for that total (permanent silent deadlock). A retry starts
+    // a new request.
   }
   if (approvalsChanged) await saveApprovals(approvals);
   await saveOutstanding(stillPending);
@@ -382,6 +417,14 @@ export async function run() {
     // (reconcileApprovals is a network round-trip). Worst case before reconcile finishes:
     // an already-approved total is briefly re-held (fail-closed), never auto-placed.
     armPlaceOrderIntercept(settings, await getApprovals());
+    // Preload the best-known total from the cart snapshot, so the sync approval gate has
+    // a stable total to match on a page where the live total does not parse.
+    try {
+      const snap = await loadCartSnapshot();
+      if (snap && snap.total != null && (Date.now() - (snap.at || 0) < SNAPSHOT_MAX_AGE_MS)) {
+        armedSnapshotTotal = snap.total;
+      }
+    } catch (e) { /* no-op: fall back to a null total (fail closed) */ }
     // Then learn the outcome of any prior request and refresh the armed approvals, so an
     // approved total is recognized and the shopper's next click is let straight through.
     try {

@@ -18,6 +18,13 @@ const TOTAL_CONTAINERS = [
 
 const TOTAL_LABEL_RE = /^\s*(order total|grand total|subtotal)\b/i;
 
+// Amazon's total labels read "Subtotal (3 items): $59.97". Strip the "(N items)"
+// count so parseCurrency (which grabs the first digit-run) returns the price, not the
+// item count, when reading a whole label row that has no .a-offscreen price node.
+function stripItemCount(text) {
+  return String(text || '').replace(/\(\s*\d[\d,]*\s*items?\s*\)/ig, ' ');
+}
+
 export function parseCartTotal(root = document) {
   // 1) Known total containers; read the accessible price inside if present.
   for (const sel of TOTAL_CONTAINERS) {
@@ -36,7 +43,7 @@ export function parseCartTotal(root = document) {
       const row = el.closest('tr, li, div') || el.parentElement;
       if (row) {
         const off = row.querySelector('.a-offscreen');
-        const val = parseCurrency(off ? off.textContent : row.textContent);
+        const val = parseCurrency(off ? off.textContent : stripItemCount(row.textContent));
         if (val != null) return val;
       }
     }

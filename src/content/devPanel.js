@@ -135,19 +135,26 @@ function demoPlaceOrder() {
 // say so rather than silently doing nothing.
 async function sendTestEmail() {
   if (!shouldUseSupabase(currentSettings, CONFIG)) {
-    toast('Set an approver email in Settings (and configure the backend) to send a real test email.');
+    toast('Configure a delivery method (email or Telegram) and the backend URL in Settings to send a real test.');
     return;
   }
+  // Route through the SAME delivery method the real checkout uses, so the test exercises
+  // the configured channel (Telegram if linked, else email), not a hardcoded email.
+  const method = currentSettings.deliveryMethod || 'email';
   const relay = new SupabaseRelay({
     baseUrl: resolveFunctionsBaseUrl(currentSettings, CONFIG),
     guardianEmail: currentSettings.guardianEmail,
     guardianName: currentSettings.guardianName,
+    deliveryMethod: method,
+    telegramLinkCode: currentSettings.telegramLinkCode || null,
   });
-  toast('Sending test email to ' + currentSettings.guardianEmail + '...');
+  toast(method === 'telegram' ? 'Sending test approval to Telegram...' : ('Sending test email to ' + currentSettings.guardianEmail + '...'));
   try {
     const cart = await currentCart();
     await relay.submitRequest({ total: cart.total, items: cart.items });
-    toast('Sent to ' + currentSettings.guardianEmail + '. Open it; the Approve/Reject link is live (buys nothing).');
+    toast(method === 'telegram'
+      ? 'Sent to your linked Telegram. Approve/Reject is live (buys nothing).'
+      : ('Sent to ' + currentSettings.guardianEmail + '. Open it; the Approve/Reject link is live (buys nothing).'));
   } catch (e) {
     toast('Could not send: ' + ((e && e.message) || e));
   }
