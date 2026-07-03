@@ -16,14 +16,32 @@ import { CONFIG } from '../config.js';
 import { SAMPLE_CART } from './devSample.js';
 import { parseCart } from '../lib/parseCart.js';
 
+const CART_SNAPSHOT_KEY = 'parago_cart_snapshot';
+const SNAPSHOT_MAX_AGE_MS = 30 * 60 * 1000; // older carts aren't trusted for the demo
+
+function loadCartSnapshot() {
+  return new Promise((resolve) => {
+    try {
+      chrome.storage.local.get({ [CART_SNAPSHOT_KEY]: null }, (d) => resolve(d[CART_SNAPSHOT_KEY] || null));
+    } catch (e) { resolve(null); }
+  });
+}
+
 // What the demo + test email show. Prefer the shopper's ACTUAL cart parsed live
 // from the page, so dev mode reflects the items literally in their Amazon cart.
-// Fall back to the fixed SAMPLE_CART only when there's nothing real to read — an
-// empty cart, or a checkout page where the cart selectors don't match. Cart-page
-// items carry no rating/reviewCount; the email renders fine without stars.
-function currentCart() {
+// If this page has no parseable cart (a product or checkout page, whose DOM the
+// cart selectors don't match), fall back to the cart snapshot the checkout script
+// stashes while on the cart page. Only when there is no real cart data anywhere do
+// we use the fixed SAMPLE_CART. Cart-page items carry no rating/reviewCount; the
+// email renders fine without stars.
+async function currentCart() {
   const parsed = parseCart(document);
-  return parsed.items && parsed.items.length ? parsed : SAMPLE_CART;
+  if (parsed.items && parsed.items.length) return parsed;
+  const snap = await loadCartSnapshot();
+  if (snap && Array.isArray(snap.items) && snap.items.length && (Date.now() - (snap.at || 0) < SNAPSHOT_MAX_AGE_MS)) {
+    return { total: snap.total != null ? snap.total : null, items: snap.items };
+  }
+  return SAMPLE_CART;
 }
 
 const PANEL_ID = 'parago-dev-panel';
@@ -81,9 +99,9 @@ function endDemo() {
 
 // Demo 1: the approval-pending overlay, with controls to flip it through the
 // real approved / rejected states a guardian decision would trigger.
-function demoApproval() {
+async function demoApproval() {
   setLang(currentSettings.lang);
-  const cart = currentCart();
+  const cart = await currentCart();
   showOverlay({
     items: cart.items,
     total: cart.total,
@@ -127,7 +145,7 @@ async function sendTestEmail() {
   });
   toast('Sending test email to ' + currentSettings.guardianEmail + '...');
   try {
-    const cart = currentCart();
+    const cart = await currentCart();
     await relay.submitRequest({ total: cart.total, items: cart.items });
     toast('Sent to ' + currentSettings.guardianEmail + '. Open it; the Approve/Reject link is live (buys nothing).');
   } catch (e) {
