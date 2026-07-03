@@ -36,17 +36,14 @@ body.options { padding: 40px 28px 56px; }
 /* Options: pack the cards into two columns so the page fills the width instead of
    running as one tall column. break-inside keeps each card whole; falls back to a
    single column on narrow windows. */
-/* A stable two-column grid: cards keep their column, so expanding one (e.g. the
-   Telegram details) grows only its own cell instead of re-balancing the whole page
-   the way CSS multi-columns did. */
-.cards {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 20px;
-  align-items: start;
-}
-.cards > .card { margin-bottom: 0; }
-@media (max-width: 720px) { .cards { grid-template-columns: 1fr; } }
+/* Two side-by-side columns. Cards are assigned to a column in the HTML (tall
+   Purchase-approval card on the left, the shorter cards stacked on the right), so
+   the page fills horizontally and expanding one card only grows its own column,
+   never re-balancing the whole page. */
+.cards { display: flex; gap: 20px; align-items: flex-start; }
+.col { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 20px; }
+.col > .card { margin-bottom: 0; }
+@media (max-width: 720px) { .cards { flex-direction: column; } }
 
 /* Brand header */
 .brand { display: flex; align-items: center; gap: 13px; margin-bottom: 22px; }
@@ -166,9 +163,13 @@ input.switch:focus-visible { box-shadow: 0 0 0 3px var(--accent-tint); }
   display: flex; align-items: center; justify-content: space-between;
   gap: 12px; margin-top: 4px;
 }
+/* Floating "Saved" pill: appears top-right on any change, visible wherever you scroll. */
 .saved {
-  color: var(--accent-strong); font-weight: 700; min-height: 1.4rem;
-  opacity: 0; transform: translateY(3px); transition: opacity .18s, transform .18s;
+  position: fixed; top: 16px; right: 16px; z-index: 20;
+  background: var(--accent); color: #fff; font-weight: 700; font-size: 0.92rem;
+  padding: 8px 16px; border-radius: 999px; box-shadow: var(--shadow);
+  opacity: 0; transform: translateY(-6px); transition: opacity .18s, transform .18s;
+  pointer-events: none;
 }
 .saved.show { opacity: 1; transform: translateY(0); }
 .btn.is-armed { background: var(--danger); color: #fff; border-color: var(--danger); }
@@ -234,9 +235,43 @@ input.switch:focus-visible { box-shadow: 0 0 0 3px var(--accent-tint); }
 
 /* Live "what happens" example under the approval mode */
 .field-example {
-  margin: 10px 0 0; font-size: 13px; line-height: 1.45; color: var(--ink);
-  background: var(--accent-tint); border-radius: var(--radius-sm); padding: 10px 12px;
+  margin: 10px 0 2px; font-size: 13px; line-height: 1.5; color: var(--ink);
+  background: var(--accent-tint); border-left: 3px solid var(--accent);
+  border-radius: 8px; padding: 10px 13px;
 }
+
+/* Segmented control (Off / On, Email / Telegram) */
+.seg {
+  display: inline-flex; padding: 3px; gap: 2px;
+  background: #eceff3; border: 1px solid var(--line); border-radius: 999px;
+}
+.seg-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  font: inherit; font-weight: 600; font-size: 0.88rem;
+  padding: 6px 14px; border: 0; border-radius: 999px;
+  background: transparent; color: var(--ink-soft); cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.seg-btn.is-active { background: var(--accent); color: #fff; }
+.seg-btn:focus-visible { outline: 3px solid var(--accent-tint); outline-offset: 2px; }
+.seg-ic { display: inline-grid; place-items: center; }
+.seg-onoff .seg-btn { min-width: 48px; justify-content: center; padding: 6px 4px; }
+
+/* Field label used where there is no form input to point <label> at */
+.field-label { font-weight: 600; }
+.field:not(.switch-row) > .field-label { display: block; margin-bottom: 8px; }
+.switch-row > .field-label { display: inline-flex; align-items: center; }
+
+/* Small uppercase group heading (e.g. "Flag items that are") */
+.group-heading {
+  margin: 16px 0 2px; font-size: 0.72rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-soft);
+}
+
+/* Stylized "prime" mark (wordmark + smile) next to "Not on" */
+.prime-badge { display: inline-flex; align-items: flex-end; gap: 2px; margin-left: 6px; color: #00a8e1; vertical-align: -2px; }
+.prime-word { font-weight: 700; font-size: 0.95rem; letter-spacing: -0.02em; line-height: 1; }
+.prime-badge svg { display: block; margin-bottom: 1px; }
 
 /* Provider (email / telegram) icons */
 .prov-ic { display: inline-grid; place-items: center; vertical-align: -3px; color: var(--accent); margin-right: 6px; }

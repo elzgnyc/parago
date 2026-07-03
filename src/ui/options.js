@@ -3,16 +3,56 @@ import { setLang, t } from '../i18n/i18n.js';
 import { CONFIG } from '../config.js';
 import { resolveFunctionsBaseUrl } from '../relay/selectRelay.js';
 
+// Inputs/selects driven by a generic change -> save listener.
 const fields = [
   'lang', 'minStars', 'minRatings', 'mode',
-  'hideSponsored', 'flagLowRating', 'flagFewRatings', 'flagNonPrime', 'hoverReveal',
-  'guardianMode', 'guardianLimit', 'deliveryMethod', 'guardianEmail', 'functionsBaseUrl',
-  'devMode',
+  'guardianMode', 'guardianLimit', 'guardianEmail', 'functionsBaseUrl',
 ];
+// Settings driven by segmented On/Off (or Email/Telegram) controls instead of inputs.
+const boolSegs = ['hideSponsored', 'flagLowRating', 'flagFewRatings', 'flagNonPrime', 'hoverReveal', 'devMode'];
+const segKeys = ['deliveryMethod', ...boolSegs];
+
+const ICON_EMAIL = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>';
+const ICON_TG = '<svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M21.9 4.3 18.7 19.4c-.2 1-.9 1.3-1.7.8l-4.7-3.5-2.3 2.2c-.3.3-.5.5-1 .5l.3-4.9L18 6.1c.4-.3-.1-.5-.6-.2L7.2 12.3l-4.6-1.4c-1-.3-1-1 .2-1.5L20.6 2.7c.8-.3 1.6.2 1.3 1.6z"/></svg>';
+
+// ── Segmented controls (bound to a setting) ──────────────────────────────────────
+const segState = {};
+function initSeg(key, opts) {
+  const host = document.getElementById('seg-' + key);
+  if (!host) return;
+  host.textContent = '';
+  host._btns = {};
+  for (const o of opts) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'seg-btn';
+    if (o.icon) {
+      const ic = document.createElement('span');
+      ic.className = 'seg-ic';
+      ic.innerHTML = o.icon; // trusted, local static SVG constants
+      b.appendChild(ic);
+    }
+    b.appendChild(document.createTextNode(o.label));
+    b.addEventListener('click', () => { setSeg(key, o.v); save(); });
+    host.appendChild(b);
+    host._btns[String(o.v)] = b;
+  }
+}
+function setSeg(key, v) {
+  segState[key] = v;
+  const host = document.getElementById('seg-' + key);
+  if (host && host._btns) for (const [val, b] of Object.entries(host._btns)) b.classList.toggle('is-active', val === String(v));
+}
+function getSeg(key) { return segState[key]; }
+function buildSegs() {
+  initSeg('deliveryMethod', [
+    { v: 'email', label: t('delivery_email'), icon: ICON_EMAIL },
+    { v: 'telegram', label: t('delivery_telegram'), icon: ICON_TG },
+  ]);
+  for (const k of boolSegs) initSeg(k, [{ v: true, label: t('on') }, { v: false, label: t('off') }]);
+}
 
 // ── Detail level (Simple / Advanced) ─────────────────────────────────────────────
-// Advanced-only controls carry [data-adv]; Simple mode hides them so the page is not
-// overwhelming. The choice persists (settings.advancedMode).
 function applyAdvancedVisibility(advanced) {
   for (const el of document.querySelectorAll('[data-adv]')) el.hidden = !advanced;
   for (const b of document.querySelectorAll('.ui-mode-btn')) {
@@ -20,8 +60,6 @@ function applyAdvancedVisibility(advanced) {
   }
 }
 
-// Show only the fields for the selected delivery method; the others stay in the DOM
-// (their stored values persist) but hidden, so swapping never clears the other method.
 function applyMethodVisibility(method) {
   for (const el of document.querySelectorAll('[data-method]')) {
     el.hidden = el.getAttribute('data-method') !== method;
@@ -30,22 +68,9 @@ function applyMethodVisibility(method) {
   else stopTgPoll();
 }
 
-// Spending limit only applies to the "only over a spending limit" mode.
 function applyGuardianModeVisibility(mode) {
   const el = document.getElementById('guardianLimitField');
   if (el) el.hidden = mode !== 'over_limit';
-}
-
-// A plain-language, live example of what the selected approval mode does.
-function updateGuardianExample() {
-  const el = document.getElementById('guardianExample');
-  if (!el) return;
-  const mode = document.getElementById('guardianMode').value;
-  const via = document.getElementById('deliveryMethod').value === 'telegram' ? t('via_telegram') : t('via_email');
-  const limit = document.getElementById('guardianLimit').value || '0';
-  if (mode === 'off') el.textContent = t('ex_off');
-  else if (mode === 'always') el.textContent = t('ex_always').replace('{via}', via);
-  else el.textContent = t('ex_over').replace('{limit}', limit).replace('{via}', via);
 }
 
 // ── Telegram: connected badge vs linking flow ─────────────────────────────────────
@@ -59,6 +84,10 @@ function renderTelegramState(settings) {
   if (!linked && details) details.hidden = true;
   const nameEl = document.getElementById('tgConnectedName');
   if (nameEl) nameEl.textContent = settings.telegramName ? (' · ' + settings.telegramName) : '';
+  const body = document.getElementById('tgDetailsBody');
+  if (body) body.textContent = settings.telegramName
+    ? ('Connected to ' + settings.telegramName + '. Approval requests are sent to this Telegram chat.')
+    : 'Approval requests are sent to this Telegram chat. Re-link to show which account is connected.';
 }
 
 function genLinkCode() {
@@ -69,10 +98,7 @@ function genLinkCode() {
 
 let tgPoll = null;
 function stopTgPoll() { if (tgPoll) { clearInterval(tgPoll); tgPoll = null; } }
-function tgStatus(msg) {
-  const el = document.getElementById('tgLinkStatus');
-  if (el) el.textContent = msg;
-}
+function tgStatus(msg) { const el = document.getElementById('tgLinkStatus'); if (el) el.textContent = msg; }
 
 async function setupTelegramLink() {
   const settings = await getSettings();
@@ -97,8 +123,6 @@ async function setupTelegramLink() {
   if (area) area.hidden = false;
   tgStatus(t('tg_waiting'));
 
-  // Poll link-status until the guardian taps Start, then stop. Bounded so an Options
-  // tab left open never polls forever if they never connect.
   stopTgPoll();
   const startedAt = Date.now();
   tgPoll = setInterval(async () => {
@@ -115,8 +139,6 @@ async function setupTelegramLink() {
   }, 3000);
 }
 
-// Rotate to a fresh link code and clear the linked flag so the approver can be
-// re-linked on a different device. Shows the linking flow again.
 async function resetTelegramLink() {
   stopTgPoll();
   await setSettings({ telegramLinkCode: '', telegramLinked: false, telegramName: '' });
@@ -141,8 +163,6 @@ function toFinite(raw, fallback, min, max) {
   return Math.min(max, Math.max(min, n));
 }
 
-// Five SVG stars with a hard-stop gradient fill, so a fractional value renders a clean
-// half star. Clicking the LEFT half of a star sets the half value (e.g. 3.5).
 function buildStars() {
   const picker = document.getElementById('starPicker');
   if (!picker) return;
@@ -208,7 +228,7 @@ function renderStars(value) {
 
 // ── Form ────────────────────────────────────────────────────────────────────────
 function settingsAreDefault(s) {
-  return fields.every((key) => JSON.stringify(s[key]) === JSON.stringify(DEFAULTS[key]));
+  return [...fields, ...segKeys].every((key) => JSON.stringify(s[key]) === JSON.stringify(DEFAULTS[key]));
 }
 function updateDirty() {
   document.getElementById('reset').hidden = settingsAreDefault(readForm());
@@ -225,54 +245,43 @@ function load(settings) {
   document.getElementById('minStars').value = settings.minStars;
   document.getElementById('minRatings').value = settings.minRatings;
   document.getElementById('mode').value = settings.mode;
-  document.getElementById('hideSponsored').checked = settings.hideSponsored;
-  document.getElementById('flagLowRating').checked = settings.flagLowRating;
-  document.getElementById('flagFewRatings').checked = settings.flagFewRatings;
-  document.getElementById('flagNonPrime').checked = settings.flagNonPrime;
-  document.getElementById('hoverReveal').checked = settings.hoverReveal;
   document.getElementById('guardianMode').value = settings.guardianMode;
   document.getElementById('guardianLimit').value = settings.guardianLimit;
-  document.getElementById('deliveryMethod').value = settings.deliveryMethod || 'email';
   document.getElementById('guardianEmail').value = settings.guardianEmail;
   document.getElementById('functionsBaseUrl').value = settings.functionsBaseUrl || '';
-  document.getElementById('devMode').checked = settings.devMode;
+  setSeg('deliveryMethod', settings.deliveryMethod || 'email');
+  for (const k of boolSegs) setSeg(k, settings[k]);
   setLang(settings.lang);
   applyI18n();
   applyAdvancedVisibility(settings.advancedMode);
   applyMethodVisibility(settings.deliveryMethod || 'email');
   applyGuardianModeVisibility(settings.guardianMode);
   renderTelegramState(settings);
-  updateGuardianExample();
   renderStars(settings.minStars);
   updateDirty();
 }
 
 function readForm() {
-  return {
+  const out = {
     lang: document.getElementById('lang').value,
     minStars: toFinite(document.getElementById('minStars').value, DEFAULTS.minStars, 0, 5),
     minRatings: Math.round(toFinite(document.getElementById('minRatings').value, DEFAULTS.minRatings, 0, Infinity)),
     mode: document.getElementById('mode').value,
-    hideSponsored: document.getElementById('hideSponsored').checked,
-    flagLowRating: document.getElementById('flagLowRating').checked,
-    flagFewRatings: document.getElementById('flagFewRatings').checked,
-    flagNonPrime: document.getElementById('flagNonPrime').checked,
-    hoverReveal: document.getElementById('hoverReveal').checked,
     guardianMode: document.getElementById('guardianMode').value,
     guardianLimit: Math.round(toFinite(document.getElementById('guardianLimit').value, DEFAULTS.guardianLimit, 0, Infinity)),
-    deliveryMethod: document.getElementById('deliveryMethod').value,
     guardianEmail: document.getElementById('guardianEmail').value.trim(),
     functionsBaseUrl: document.getElementById('functionsBaseUrl').value.trim(),
-    devMode: document.getElementById('devMode').checked,
+    deliveryMethod: getSeg('deliveryMethod'),
   };
+  for (const k of boolSegs) out[k] = getSeg(k);
+  return out;
 }
 
-// Flash a clear "Saved" confirmation on every change.
 function flash() {
   const saved = document.getElementById('saved');
   saved.textContent = t('saved');
   saved.classList.remove('show');
-  void saved.offsetWidth; // restart the animation
+  void saved.offsetWidth;
   saved.classList.add('show');
   clearTimeout(flash._t);
   flash._t = setTimeout(() => saved.classList.remove('show'), 1800);
@@ -287,14 +296,13 @@ async function save() {
   renderStars(patch.minStars);
   applyMethodVisibility(patch.deliveryMethod);
   applyGuardianModeVisibility(patch.guardianMode);
-  updateGuardianExample();
   setLang(patch.lang);
   applyI18n();
   flash();
   updateDirty();
 }
 
-// Reset needs a second click to confirm, so an accidental click never wipes settings.
+// Reset needs a second click to confirm.
 let resetArmed = false;
 let resetTimer = null;
 function resetLabel(key) {
@@ -321,8 +329,10 @@ async function resetDefaults() {
 }
 
 async function main() {
-  buildStars();
   const settings = await getSettings();
+  setLang(settings.lang);
+  buildStars();
+  buildSegs();
   load(settings);
   for (const id of fields) {
     document.getElementById(id).addEventListener('change', save);
