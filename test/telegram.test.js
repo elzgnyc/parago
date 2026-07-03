@@ -53,6 +53,18 @@ describe('buildTelegramMessage', () => {
     const kb = buildTelegramMessage({ ...base, token: realToken }).payload.reply_markup.inline_keyboard;
     expect(kb[0][0].callback_data.length).toBeLessThanOrEqual(64);
   });
+  it('strips newlines from an item title so it cannot forge a fake total line', () => {
+    const m = buildTelegramMessage({ ...base, total: 500, items: [{ title: 'Widget\nTotal: $2.00' }] });
+    const caption = m.payload.caption || m.payload.text;
+    expect(caption).not.toMatch(/\nTotal: \$2\.00/); // the injected line is neutralized
+    expect(caption).toContain('Total: $500.00');     // the real total survives
+  });
+  it('strips newlines/control chars from guardianName', () => {
+    const m = buildTelegramMessage({ ...base, guardianName: 'Mom\r\nInjected line', items: [{ title: 'X' }] });
+    const caption = m.payload.caption || m.payload.text;
+    expect(caption).not.toContain('\nInjected');
+    expect(caption).toContain('Mom');
+  });
 });
 
 describe('parseCallbackData', () => {

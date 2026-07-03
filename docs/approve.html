@@ -113,7 +113,11 @@
         body: JSON.stringify({ token: token, verdict: verdict }),
       }).then(function (r) { return r.json(); }).then(function (res) {
         if (res && res.ok) {
-          message(verdict === 'approved' ? 'Approved ✓' : 'Rejected', 'You can close this page.');
+          // Show the verdict the SERVER recorded (res.status), not the button we
+          // clicked: on a race the server may have stored the other surface's
+          // decision, and we must not claim an outcome it did not save.
+          var st = res.status || verdict;
+          message(st === 'approved' ? 'Approved ✓' : 'Rejected', 'You can close this page.');
         } else if (res && res.reason && REASONS[res.reason]) {
           message(REASONS[res.reason]);
         } else {

@@ -47,9 +47,12 @@ Deno.serve(async (req) => {
   if (req.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
 
   // Verify the update actually came from Telegram (the secret token echoed from
-  // setWebhook). Without this, anyone could POST fake /start or callback updates.
-  const secret = Deno.env.get('TELEGRAM_WEBHOOK_SECRET') || '';
-  if (secret && req.headers.get('x-telegram-bot-api-secret-token') !== secret) {
+  // setWebhook). Fail CLOSED when the secret is not configured: an unset secret
+  // must be a hard error, not a silent bypass that would let anyone POST forged
+  // /start or callback updates and drive the bot as a spam relay.
+  const secret = Deno.env.get('TELEGRAM_WEBHOOK_SECRET');
+  if (!secret) return json({ error: 'webhook_not_configured' }, 503);
+  if (req.headers.get('x-telegram-bot-api-secret-token') !== secret) {
     return json({ ok: false }, 401);
   }
 
@@ -68,13 +71,22 @@ Deno.serve(async (req) => {
         await tg('sendMessage', { chat_id: chatId, text: 'Open "Link Telegram" in the Parago extension to connect your account.' });
         return json({ ok: true });
       }
-      const { data: existing } = await supabase.from('telegram_links').select('chat_id').eq('code', code).maybeSingle();
-      if (existing && existing.chat_id && String(existing.chat_id) !== String(chatId)) {
-        await tg('sendMessage', { chat_id: chatId, text: 'This link is already connected to another device.' });
+      // Bind atomically: ensure a row exists, then claim it only if still unbound.
+      // The conditional UPDATE (is chat_id null) is the lock, so exactly one chat
+      // wins a fresh code even if two /start updates race. A read-then-upsert would
+      // be last-write-wins and silently let a second chat steal the binding.
+      await supabase.from('telegram_links').upsert({ code }, { onConflict: 'code', ignoreDuplicates: true });
+      const { data: bound } = await supabase.from('telegram_links')
+        .update({ chat_id: chatId, bound_at: new Date().toISOString() })
+        .eq('code', code).is('chat_id', null).select('chat_id');
+      if (bound && bound.length) {
+        await tg('sendMessage', { chat_id: chatId, text: 'Connected. Approval requests will appear here with Approve and Reject buttons.' });
         return json({ ok: true });
       }
-      await supabase.from('telegram_links').upsert({ code, chat_id: chatId, bound_at: new Date().toISOString() });
-      await tg('sendMessage', { chat_id: chatId, text: 'Connected. Approval requests will appear here with Approve and Reject buttons.' });
+      // Already bound: to this chat (a harmless re-Start) or to a different device.
+      const { data: cur } = await supabase.from('telegram_links').select('chat_id').eq('code', code).maybeSingle();
+      const mine = cur && String(cur.chat_id) === String(chatId);
+      await tg('sendMessage', { chat_id: chatId, text: mine ? 'Already connected. You are all set.' : 'This link is already connected to another device.' });
       return json({ ok: true });
     }
     return json({ ok: true });
@@ -102,11 +114,21 @@ Deno.serve(async (req) => {
       await tg('editMessageReplyMarkup', { chat_id: chatId, message_id: messageId, reply_markup: { inline_keyboard: [] } });
       return json({ ok: true });
     }
-    const { error } = await supabase.from('purchase_requests')
+    const { data: updated, error } = await supabase.from('purchase_requests')
       .update({ status: parsed.verdict, decided_at: new Date().toISOString(), token_used: true })
-      .eq('token', parsed.token).eq('status', 'pending'); // double-guard against races
+      .eq('token', parsed.token).eq('status', 'pending') // double-guard against races
+      .select('id');
     if (error) {
       await tg('answerCallbackQuery', { callback_query_id: cbId, text: 'Something went wrong. Try again.' });
+      return json({ ok: true });
+    }
+    if (!updated || !updated.length) {
+      // Our update matched 0 rows: another surface (approve.html, or a second tap)
+      // decided this first. Report the RECORDED verdict, never a false confirmation.
+      const { data: fresh } = await supabase.from('purchase_requests').select('status').eq('token', parsed.token).maybeSingle();
+      const st = fresh && fresh.status;
+      await tg('answerCallbackQuery', { callback_query_id: cbId, text: st === 'approved' ? 'Already approved.' : st === 'rejected' ? 'Already rejected.' : 'Already decided.' });
+      await tg('editMessageReplyMarkup', { chat_id: chatId, message_id: messageId, reply_markup: { inline_keyboard: [] } });
       return json({ ok: true });
     }
     await tg('answerCallbackQuery', { callback_query_id: cbId, text: parsed.verdict === 'approved' ? 'Approved' : 'Rejected' });

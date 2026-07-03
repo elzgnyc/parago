@@ -1,9 +1,26 @@
 // Pure builders for the Telegram Bot API. No network here; the Edge Function does
-// the fetch with the returned object. Plain text only (no parse_mode), so item
-// titles from the request body need no escaping and can never inject formatting.
+// the fetch with the returned object. Plain text only (no parse_mode), so there is
+// no markup injection. But the caption is newline-joined, so untrusted strings
+// (item titles, guardianName, all attacker-influenceable via the public endpoint)
+// are stripped of newlines and control/bidi chars first: without that, a title
+// like "Widget\nTotal: $2.00" would forge a second total line and mislead the
+// guardian's approval decision.
 
 function fmtMoney(n) {
   return (typeof n === 'number' && Number.isFinite(n)) ? '$' + n.toFixed(2) : '';
+}
+
+// Replace newlines and control/bidi-override chars with a space so untrusted text
+// cannot inject or reorder lines in the plain-text approval message. Stripped:
+// C0 controls (incl. \n, \r), DEL, line/paragraph separators, and bidi overrides.
+function clean(s) {
+  let out = '';
+  for (const ch of String(s == null ? '' : s)) {
+    const c = ch.codePointAt(0);
+    const bad = c < 0x20 || c === 0x7f || c === 0x2028 || c === 0x2029 || (c >= 0x202a && c <= 0x202e);
+    out += bad ? ' ' : ch;
+  }
+  return out.trim();
 }
 
 // Star/rating line, mirroring the email + approve.html rendering. Empty when the
@@ -33,17 +50,19 @@ const CAPTION_LIMIT = 1024; // Telegram sendPhoto caption hard limit
 export function buildTelegramMessage({ chatId, total, items, link, guardianName, token }) {
   const list = Array.isArray(items) ? items : [];
   const totalStr = fmtMoney(total);
-  const header = (guardianName ? `${guardianName}, a` : 'A') + ' purchase needs your approval.';
+  const who = clean(guardianName);
+  const header = (who ? `${who}, a` : 'A') + ' purchase needs your approval.';
   const totalLine = totalStr ? `Total: ${totalStr}` : '';
 
   const shown = list.slice(0, MAX_ITEMS_IN_CAPTION);
   const lines = shown.map((it) => {
     const o = it || {};
+    const title = clean(o.title) || 'Item';
     const price = (typeof o.price === 'number') ? ' ' + fmtMoney(o.price) : '';
     const qtyNum = Number(o.qty);
     const qty = (Number.isFinite(qtyNum) && qtyNum > 1) ? ` x${qtyNum}` : '';
     const meta = stars(o.rating, o.reviewCount);
-    return `- ${o.title || 'Item'}${price}${qty}${meta ? '  ' + meta : ''}`;
+    return `- ${title}${price}${qty}${meta ? '  ' + meta : ''}`;
   });
   const more = list.length > shown.length ? `...and ${list.length - shown.length} more` : '';
 

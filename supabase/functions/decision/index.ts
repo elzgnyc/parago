@@ -34,10 +34,18 @@ Deno.serve(async (req) => {
     // Record the verdict. Reject stale/used/expired links and bad verdicts.
     if (!guard.ok) return json({ ok: false, reason: guard.reason });
     if (verdict !== 'approved' && verdict !== 'rejected') return json({ ok: false, error: 'bad_verdict' }, 400);
-    const { error } = await supabase.from('purchase_requests')
+    const { data: updated, error } = await supabase.from('purchase_requests')
       .update({ status: verdict, decided_at: new Date().toISOString(), token_used: true })
-      .eq('token', token).eq('status', 'pending');   // double-guard against races
+      .eq('token', token).eq('status', 'pending')   // double-guard against races
+      .select('id');
     if (error) return json({ ok: false, error: 'update_failed' }, 500);
+    if (!updated || !updated.length) {
+      // 0 rows updated: another surface (a Telegram tap, or a second click) decided
+      // first between our read and write. Report the RECORDED verdict, not ours, so
+      // the page never shows a decision the server did not store.
+      const { data: fresh } = await supabase.from('purchase_requests').select('status').eq('token', token).maybeSingle();
+      return json({ ok: true, status: (fresh && fresh.status) || 'decided', alreadyDecided: true });
+    }
     return json({ ok: true, status: verdict });
   }
 
