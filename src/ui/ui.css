@@ -174,11 +174,10 @@ input.switch:focus-visible { box-shadow: 0 0 0 3px var(--accent-tint); }
   color: #fff; background: var(--accent); border-radius: 8px;
 }
 .pop-name {
+  flex: 1 1 auto; margin-right: auto;
   font-family: var(--font-display); font-weight: 600; font-size: 1.15rem;
   letter-spacing: -0.01em;
 }
-.pop-status { margin-left: auto; font-size: 0.78rem; font-weight: 700; color: var(--accent-strong); }
-.pop-status.is-off { color: var(--ink-soft); }
 .pop-switch { flex: 0 0 auto; width: 44px; height: 24px; }
 .pop-switch::before { width: 18px; height: 18px; top: 3px; left: 3px; }
 .pop-switch:checked::before { transform: translateX(20px); }
