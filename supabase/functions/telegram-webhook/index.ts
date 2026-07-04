@@ -21,6 +21,29 @@ async function tg(method: string, payload: unknown) {
   return res.json().catch(() => null);
 }
 
+// Compact one-line summary that replaces the full item list once a decision is made,
+// so the approval message is not left as a wall of text.
+function decisionSummary(verdict: string, row: any): string {
+  const total = (typeof row?.total === 'number' && isFinite(row.total)) ? ` · $${row.total.toFixed(2)}` : '';
+  const n = Array.isArray(row?.items) ? row.items.length : 0;
+  const items = n ? ` · ${n} item${n > 1 ? 's' : ''}` : '';
+  const when = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  return `${verdict === 'approved' ? 'Approved' : 'Rejected'}${total}${items} · ${when}`;
+}
+
+// Edit the approval message down to that summary, removing BOTH the item list and the
+// buttons (an edit with no reply_markup drops the inline keyboard). A photo message
+// carries its body in a caption; a text message in text.
+async function collapseMessage(chatId: unknown, message: any, verdict: string, row: any) {
+  const messageId = message?.message_id;
+  if (!messageId) return;
+  const text = decisionSummary(verdict, row);
+  const isPhoto = Array.isArray(message.photo) && message.photo.length > 0;
+  await tg(isPhoto ? 'editMessageCaption' : 'editMessageText',
+    isPhoto ? { chat_id: chatId, message_id: messageId, caption: text }
+            : { chat_id: chatId, message_id: messageId, text, disable_web_page_preview: true });
+}
+
 Deno.serve(async (req) => {
   const pf = preflight(req); if (pf) return pf;
 
@@ -132,12 +155,14 @@ Deno.serve(async (req) => {
       const { data: fresh } = await supabase.from('purchase_requests').select('status').eq('token', parsed.token).maybeSingle();
       const st = fresh && fresh.status;
       await tg('answerCallbackQuery', { callback_query_id: cbId, text: st === 'approved' ? 'Already approved.' : st === 'rejected' ? 'Already rejected.' : 'Already decided.' });
-      await tg('editMessageReplyMarkup', { chat_id: chatId, message_id: messageId, reply_markup: { inline_keyboard: [] } });
+      if (st === 'approved' || st === 'rejected') await collapseMessage(chatId, cq.message, st, row);
+      else await tg('editMessageReplyMarkup', { chat_id: chatId, message_id: messageId, reply_markup: { inline_keyboard: [] } });
       return json({ ok: true });
     }
     await tg('answerCallbackQuery', { callback_query_id: cbId, text: parsed.verdict === 'approved' ? 'Approved' : 'Rejected' });
-    await tg('editMessageReplyMarkup', { chat_id: chatId, message_id: messageId, reply_markup: { inline_keyboard: [] } });
-    await tg('sendMessage', { chat_id: chatId, text: parsed.verdict === 'approved' ? 'Approved ✓' : 'Rejected ✓' });
+    // Collapse the full item list to a one-line summary and drop the buttons, so the
+    // decided message is not a lingering wall of text.
+    await collapseMessage(chatId, cq.message, parsed.verdict, row);
     return json({ ok: true });
   }
 
