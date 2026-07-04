@@ -372,8 +372,11 @@ export function parseCheckoutInfo(root = document) {
   const collapse = (s) => String(s || '').replace(/\s+/g, ' ').trim();
   let payment = null, shipTo = null;
 
-  const payScope = root.querySelector('#paymentMethod, #payment, #apx-secure-display-none, [class*="payment" i]') || root.body || root;
-  const pm = collapse(payScope.textContent).match(/\b(Visa|Mastercard|MasterCard|American Express|Amex|Discover|Diners Club|JCB|UnionPay)\b[^.]{0,24}?(?:ending(?:\s+in)?|\bin\b|\*{2,})\s*(\d{4})\b/i);
+  // Amazon renders it as "Paying with <Card> <last4>" (e.g. "Visa 1234") in a
+  // .break-word span, sometimes "<Card> ending in 1234" or "<Card> **** 1234". Match a
+  // card name, an optional "ending in"/"in"/asterisks, then the last 4.
+  const pm = collapse(root.body ? root.body.textContent : root.textContent)
+    .match(/\b(Visa|Mastercard|MasterCard|American Express|Amex|Discover|Diners Club|JCB|UnionPay)\b(?:\s+(?:ending(?:\s+in)?|in))?[\s*•·]*(\d{4})\b/i);
   if (pm) payment = collapse(pm[1]).replace(/mastercard/i, 'Mastercard') + ' ••••' + pm[2];
 
   const addrScope = root.querySelector('#addressList, #shipToInsertionNode, [data-testid*="address" i], [class*="address" i]') || root.body || root;

@@ -6,11 +6,15 @@ afterEach(() => { document.body.innerHTML = ''; });
 describe('parseCheckoutInfo (partial ship-to + payment)', () => {
   it('captures the card (type + last 4) and city/state/zip only', () => {
     document.body.innerHTML = `
-      <div id="paymentMethod">Paying with Visa ending in 4821</div>
+      <span class="break-word">Paying with Visa 1234</span>
       <div id="addressList">Brooklyn, NY 11201</div>`;
     const ci = parseCheckoutInfo(document);
-    expect(ci.payment).toBe('Visa ••••4821');
+    expect(ci.payment).toBe('Visa ••••1234'); // format: "<Card> <last4>", no "ending in"
     expect(ci.shipTo).toBe('Brooklyn, NY 11201'); // no name, no street
+  });
+  it('also handles the "ending in" and asterisk card formats', () => {
+    document.body.innerHTML = '<div>Paying with Visa ending in 4821</div>';
+    expect(parseCheckoutInfo(document).payment).toBe('Visa ••••4821');
   });
   it('returns null when neither is present', () => {
     document.body.innerHTML = '<div>nothing here</div>';
