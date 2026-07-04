@@ -118,8 +118,11 @@ Deno.serve(async (req) => {
     ok: true,
     status: row.status,
     total: row.total,
+    createdAt: row.created_at ?? null,
     guardianName: row.guardian_name ?? null,
     items: Array.isArray(row.items) ? row.items : [],
     breakdown: Array.isArray(row.breakdown) ? row.breakdown : null,
+    shipTo: row.ship_to ?? null,
+    payment: row.payment ?? null,
   });
 });

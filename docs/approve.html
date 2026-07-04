@@ -14,24 +14,30 @@
     src:url("fonts/stack-sans-notch.woff2") format("woff2");
     font-weight:100 900;font-style:normal;font-display:swap;
   }
+  /* Amazon-themed palette: light grey canvas, near-black ink, teal links, orange
+     accent, Amazon navy. Approve/Reject are green/red. */
   :root{
-    --bg:#faf6ef;--surface:#fff;--ink:#211c16;--ink-soft:#6f665b;--line:#ece3d5;
-    --accent:#146eb4;--accent-strong:#0f5a94;--accent-tint:#e3eef8;--danger:#b3261e;
-    --amber:#de7921;--radius:16px;--radius-sm:10px;
-    --shadow:0 1px 2px rgba(33,28,22,.05),0 10px 30px rgba(33,28,22,.06);
+    --bg:#eaeded;--surface:#fff;--ink:#0f1111;--ink-soft:#565959;--line:#d5d9d9;
+    --accent:#007185;--accent-strong:#005e6a;--accent-tint:#e6f2f3;
+    --navy:#232f3e;--orange:#ff9900;--green:#067d62;--red:#b12704;--danger:#b12704;
+    --radius:12px;--radius-sm:9px;
+    --shadow:0 1px 2px rgba(15,17,17,.08),0 8px 24px rgba(15,17,17,.08);
+    /* Clean system stack for NUMBERS — the display font renders digits poorly. */
+    --font-num:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
   }
   @media (prefers-color-scheme:dark){
-    :root{--bg:#161a1f;--surface:#1f272f;--ink:#f3efe8;--ink-soft:#a9a396;--line:#2c353f;
-      --accent-tint:#14314a;--accent:#3d9be0;--accent-strong:#63b3ea;}
+    :root{--bg:#131a21;--surface:#1b2530;--ink:#f2f4f5;--ink-soft:#a7b0b8;--line:#37424e;
+      --accent-tint:#12303a;--accent:#43b6c9;--accent-strong:#63c6d7;--navy:#0f1720;}
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--ink);
     font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased;}
   .wrap{max-width:40rem;margin:0 auto;padding:22px 16px 56px}
-  .brand{display:flex;align-items:center;gap:10px;margin:6px 2px 16px}
+  .brand{display:flex;align-items:center;justify-content:center;gap:9px;margin:4px 0 16px}
+  .brand img{width:30px;height:30px;object-fit:contain}
   .brand .mark{font-family:"Stack Sans Notch",system-ui,sans-serif;font-weight:800;
-    font-size:1.3rem;color:var(--accent);letter-spacing:.2px}
+    font-size:1.35rem;color:var(--navy);letter-spacing:.2px}
   .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
     box-shadow:var(--shadow);padding:24px}
   h1{font-family:"Stack Sans Notch",system-ui,sans-serif;font-size:1.5rem;margin:0 0 2px;line-height:1.2}
@@ -39,7 +45,7 @@
   .total{display:flex;align-items:baseline;gap:8px;padding:12px 14px;background:var(--accent-tint);
     border-radius:var(--radius-sm);margin:0 0 6px}
   .total .lbl{color:var(--ink-soft);font-size:.85rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
-  .total .amt{font-family:"Stack Sans Notch",system-ui,sans-serif;font-weight:800;font-size:1.5rem;margin-left:auto;color:var(--accent-strong)}
+  .total .amt{font-family:var(--font-num);font-variant-numeric:tabular-nums;font-weight:800;font-size:1.5rem;margin-left:auto;color:var(--navy)}
   .count{color:var(--ink-soft);font-size:.85rem;margin:10px 2px 2px}
   .breakdown{background:var(--accent-tint);border-radius:var(--radius-sm);padding:12px 16px;margin:0 0 4px}
   .bd-row{display:flex;justify-content:space-between;gap:12px;font-size:.9rem;padding:3px 0;color:var(--ink)}
@@ -47,7 +53,8 @@
   .bd-amt{font-variant-numeric:tabular-nums;white-space:nowrap}
   .bd-total{margin-top:6px;padding-top:9px;border-top:1px solid var(--line)}
   .bd-total .bd-label{color:var(--accent-strong);font-weight:700}
-  .bd-total .bd-amt{font-family:"Stack Sans Notch",system-ui,sans-serif;font-weight:800;font-size:1.35rem;color:var(--accent-strong)}
+  .bd-total .bd-amt{font-family:var(--font-num);font-variant-numeric:tabular-nums;font-weight:800;font-size:1.35rem;color:var(--navy)}
+  .bd-total .bd-label{color:var(--navy)}
   .approving{color:var(--ink-soft);font-size:.86rem;margin:8px 2px 2px}
   .approving-amt{color:var(--ink);font-weight:700}
   ul.items{list-style:none;padding:0;margin:8px 0 4px}
@@ -70,8 +77,9 @@
   .it-title a{color:var(--ink);text-decoration:none}
   .it-title a:hover{color:var(--accent);text-decoration:underline}
   .it-facts{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center;margin-top:6px;font-size:.86rem;color:var(--ink-soft)}
-  .it-facts .price{color:var(--ink);font-weight:700}
-  .it-facts .stars{color:var(--amber);letter-spacing:1px}
+  .it-facts .price{color:var(--red);font-weight:700;font-family:var(--font-num);font-variant-numeric:tabular-nums}
+  .it-facts .stars{color:var(--orange);letter-spacing:1px}
+  .it-facts,.qty-input,.approving-amt,.deadline{font-family:var(--font-num);font-variant-numeric:tabular-nums}
   .it-facts a{color:var(--accent);text-decoration:none}
   .it-facts a:hover{text-decoration:underline}
   .it-asin{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.74rem}
@@ -95,10 +103,10 @@
   .actions{display:flex;gap:10px;margin-top:22px}
   button{font:inherit;font-weight:700;font-size:1rem;padding:13px 18px;border-radius:var(--radius-sm);
     border:1.5px solid transparent;cursor:pointer;flex:1 1 0;transition:background .12s,border-color .12s}
-  .ok{background:var(--accent);color:#fff}
-  .ok:hover{background:var(--accent-strong)}
-  .no{background:transparent;color:var(--danger);border-color:var(--line)}
-  .no:hover{border-color:var(--danger)}
+  .ok{background:var(--green);color:#fff}
+  .ok:hover{filter:brightness(.92)}
+  .no{background:var(--red);color:#fff}
+  .no:hover{filter:brightness(.92)}
   button[disabled]{opacity:.5;cursor:default}
   .note{color:var(--danger);font-size:.9rem;margin:12px 2px 0;min-height:1px}
   .center{text-align:center;padding:26px 0;color:var(--ink-soft)}
@@ -106,14 +114,16 @@
     border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
   @keyframes spin{to{transform:rotate(360deg)}}
   .done-badge{font-family:"Stack Sans Notch",system-ui,sans-serif;font-size:1.7rem;font-weight:800;background:none}
-  .done-badge.is-approved{color:var(--accent-strong)}
-  .done-badge.is-rejected{color:var(--danger)}
+  .done-badge.is-approved{color:var(--green)}
+  .done-badge.is-rejected{color:var(--red)}
+  .shipinfo{display:flex;flex-wrap:wrap;gap:6px 18px;margin:12px 2px 2px;font-size:.85rem;color:var(--ink-soft)}
+  .shipinfo b{color:var(--ink);font-weight:600}
   .retry{margin-top:10px;font:inherit;color:var(--accent);background:none;border:0;cursor:pointer;text-decoration:underline;padding:0}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <div class="brand"><span class="mark">Parago</span></div>
+  <div class="brand"><img src="parago.png" alt="" /><span class="mark">Parago</span></div>
   <div class="card" id="app">
     <div class="center"><div class="spinner"></div>Loading this request…</div>
   </div>
@@ -136,7 +146,14 @@
   }
   function httpUrl(u){ return (typeof u === 'string' && /^https?:\/\//i.test(u)) ? u : null; }
   function money(n){ return (typeof n === 'number' && isFinite(n)) ? n.toFixed(2) : '—'; }
-  function today(){ return new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'}); }
+  // Precise date + time (the guardian may get several orders the same day, so the
+  // minute matters). Uses the request's created time when available, else now.
+  function whenFull(iso){
+    var d = iso ? new Date(iso) : new Date();
+    if (isNaN(d.getTime())) d = new Date();
+    return d.toLocaleString('en-US',{year:'numeric',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
+  }
+  function amazonApp(asin){ return asin ? 'com.amazon.mobile.shopping.web://www.amazon.com/dp/' + encodeURIComponent(asin) : null; }
 
   // Only real product photos (Amazon serves them under /images/I/); reject inline
   // placeholders and loading spinners so the guardian never sees an infinite wheel.
@@ -201,7 +218,12 @@
     check.checked = true; check.setAttribute('aria-label', 'Include this item');
     titleRow.appendChild(check);
     titleRow.appendChild(elt('span', { cls:'num', text:String(i + 1) }));
-    titleRow.appendChild(elt('span', { cls:'it-title', text: cleanTitle(it && it.title) }));
+    // Title opens the Amazon APP (already signed in on a phone) — no browser login wall.
+    var titleEl = elt('span', { cls:'it-title' });
+    var appHref = amazonApp(it && it.asin);
+    if (appHref){ var a = elt('a', { text: cleanTitle(it && it.title) }); a.href = appHref; titleEl.appendChild(a); }
+    else titleEl.appendChild(document.createTextNode(cleanTitle(it && it.title)));
+    titleRow.appendChild(titleEl);
     body.appendChild(titleRow);
 
     var origQty = (isFinite(Number(it.qty)) && Number(it.qty) > 0) ? Math.round(Number(it.qty)) : 1;
@@ -246,18 +268,8 @@
       body.appendChild(dl);
     }
 
-    // Primary path: open the Amazon APP (already signed in on the phone) to the full
-    // product — reviews, Q&A, everything — with no browser login wall. Custom scheme
-    // opens the app where installed; a no-op elsewhere, which is why the inline
-    // Details below is the fallback.
-    if (it && it.asin){
-      var appLink = elt('a', { cls:'applink', text:'Open in Amazon app' });
-      appLink.href = 'com.amazon.mobile.shopping.web://www.amazon.com/dp/' + encodeURIComponent(it.asin);
-      body.appendChild(appLink);
-    }
-
-    // Fallback: the richer product detail captured at cart time, shown inline so the
-    // guardian never has to leave this page.
+    // The richer product detail captured from the product page, shown inline so the
+    // guardian sees it here (tapping the title opens the Amazon app for the rest).
     var d = it && it.details;
     if (d && (d.brand || d.dateFirstAvailable || d.rank || (d.bullets && d.bullets.length))){
       var det = elt('details', { cls:'more' });
@@ -343,8 +355,7 @@
   function renderApproval(data){
     clear(app);
     GUARDIAN_SELECTION = [];
-    app.appendChild(elt('h1', { text:'Approve this purchase?' }));
-    app.appendChild(elt('p', { cls:'when', text: today() + ' · tick items to keep, or change a quantity' }));
+    app.appendChild(elt('p', { cls:'when', text: whenFull(data.createdAt) }));
 
     var items = Array.isArray(data.items) ? data.items : [];
 
@@ -376,6 +387,15 @@
     var cntS = elt('span'); cntS.id = 'approvedCount'; appr.appendChild(cntS);
     app.appendChild(appr);
 
+    // Ship-to + payment (partial only) captured at checkout, so the guardian sees where
+    // it's going and which card without any full/sensitive detail.
+    if (data.shipTo || data.payment){
+      var ship = elt('div', { cls:'shipinfo' });
+      if (data.shipTo){ var s1 = elt('span'); s1.appendChild(document.createTextNode('Ship to ')); s1.appendChild(elt('b', { text: String(data.shipTo) })); ship.appendChild(s1); }
+      if (data.payment){ var s2 = elt('span'); s2.appendChild(document.createTextNode('Pay ')); s2.appendChild(elt('b', { text: String(data.payment) })); ship.appendChild(s2); }
+      app.appendChild(ship);
+    }
+
     var ul = elt('ul', { cls:'items' });
     items.forEach(function(it, i){ ul.appendChild(itemRow(it || {}, i)); });
     app.appendChild(ul);
@@ -405,7 +425,7 @@
           var st = res.status || verdict, word = st === 'approved' ? 'Approved' : 'Rejected';
           clear(app);
           app.appendChild(elt('div', { cls:'done-badge ' + (st==='approved'?'is-approved':'is-rejected'), text:word }));
-          app.appendChild(elt('p', { cls:'when', text:word + ' on ' + today() + '. You can close this page.' }));
+          app.appendChild(elt('p', { cls:'when', text:word + ' ' + whenFull() + '. You can close this page.' }));
         } else if (res && res.reason && REASONS[res.reason]){
           message(REASONS[res.reason]);
         } else {

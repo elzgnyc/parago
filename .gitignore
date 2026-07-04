@@ -25,3 +25,4 @@ docs/*
 # OS cruft
 .DS_Store
 Thumbs.db
+!docs/parago.png
