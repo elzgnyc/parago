@@ -139,6 +139,17 @@
   function cleanTitle(t){
     return String(t == null ? 'Item' : t).replace(/\(?\s*opens?\s+in\s+(?:a\s+)?new\s+(?:tab|window)\s*\)?\.?/ig,' ').replace(/\s+/g,' ').trim() || 'Item';
   }
+  // Defensive delivery cleanup for values captured before the parser fix: split words
+  // glued at a lowercase→uppercase boundary ("OvernightFREE" -> "Overnight FREE") and
+  // start at the real message, dropping a leading badge word ("Overnight FREE delivery
+  // ..." -> "FREE delivery ...").
+  function cleanDelivery(s){
+    s = String(s == null ? '' : s).replace(/([a-z])([A-Z])/g, '$1 $2').replace(/\s+/g, ' ').trim();
+    var m = s.match(/(?:FREE\s+)?delivery\b.*/i) || s.match(/(?:Arrives|Get it)\b.*/i);
+    s = (m ? m[0] : s).replace(/\s*(?:on \$[\d.,]+ of qualifying items|FREE Returns|Order within).*$/i, '').trim();
+    return s;
+  }
+
   function detailLine(label, value){
     var row = elt('div', { cls:'dl' });
     row.appendChild(elt('span', { cls:'dl-k', text:label }));
@@ -217,7 +228,8 @@
     // Delivery window captured from the cart, plus a live countdown to the order
     // cutoff so the guardian knows if the slot is still available (see tickDeadlines).
     if (it && typeof it.delivery === 'string' && it.delivery){
-      body.appendChild(elt('div', { cls:'it-delivery', text: it.delivery }));
+      var dtext = cleanDelivery(it.delivery);
+      if (dtext) body.appendChild(elt('div', { cls:'it-delivery', text: dtext }));
     }
     if (it && typeof it.deliveryExpiry === 'number' && isFinite(it.deliveryExpiry)){
       var dl = elt('div', { cls:'deadline' });
@@ -327,7 +339,7 @@
 
     var items = Array.isArray(data.items) ? data.items : [];
     var total = elt('div', { cls:'total' });
-    total.appendChild(elt('span', { cls:'lbl', text:'Approved' }));
+    total.appendChild(elt('span', { cls:'lbl', text:'Total' }));
     var amt = elt('span', { cls:'amt', text:'$' + money(data.total) }); amt.id = 'approvedAmt';
     total.appendChild(amt);
     app.appendChild(total);

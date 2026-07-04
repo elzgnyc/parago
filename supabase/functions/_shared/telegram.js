@@ -29,6 +29,14 @@ function clean(s) {
     .trim();
 }
 
+// Un-stick a delivery line and drop a leading badge word: "OvernightFREE delivery
+// Overnight 4 AM - 8 AM" -> "FREE delivery Overnight 4 AM - 8 AM".
+function cleanDelivery(s) {
+  s = clean(s).replace(/([a-z])([A-Z])/g, '$1 $2').replace(/\s+/g, ' ').trim();
+  const m = s.match(/(?:FREE\s+)?delivery\b.*/i) || s.match(/(?:Arrives|Get it)\b.*/i);
+  return (m ? m[0] : s).replace(/\s*(?:on \$[\d.,]+ of qualifying items|FREE Returns|Order within).*$/i, '').trim();
+}
+
 // A usable product photo (not a loading spinner / placeholder). Amazon serves the
 // real image under /images/I/ and its cart spinner under /images/G/…loading-large.gif;
 // reject the latter (and data: / .gif) so a stale capture never leads with a spinner.
@@ -82,7 +90,7 @@ export function buildTelegramMessage({ chatId, total, items, link, token }) {
     parts.push(`${i + 1}. ${title}`);
     const detail = [price && (qty > 1 ? `${price} ×${qty}` : price), meta].filter(Boolean).join('    ');
     if (detail) parts.push(`    ${detail}`);
-    if (typeof o.delivery === 'string' && o.delivery) parts.push(`    ${clean(o.delivery)}`);
+    if (typeof o.delivery === 'string' && o.delivery) { const dv = cleanDelivery(o.delivery); if (dv) parts.push(`    ${dv}`); }
   });
   const extra = list.length - shown.length;
   if (extra > 0) parts.push('', `+${extra} more item${extra > 1 ? 's' : ''}`);

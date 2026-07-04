@@ -16,6 +16,13 @@ function cleanTitle(s) {
     .replace(/\s+/g, ' ')
     .trim();
 }
+// Un-stick a delivery line captured before the parser fix and drop a leading badge:
+// "OvernightFREE delivery Overnight 4 AM - 8 AM" -> "FREE delivery Overnight 4 AM - 8 AM".
+function cleanDelivery(s) {
+  s = String(s == null ? '' : s).replace(/([a-z])([A-Z])/g, '$1 $2').replace(/\s+/g, ' ').trim();
+  const m = s.match(/(?:FREE\s+)?delivery\b.*/i) || s.match(/(?:Arrives|Get it)\b.*/i);
+  return (m ? m[0] : s).replace(/\s*(?:on \$[\d.,]+ of qualifying items|FREE Returns|Order within).*$/i, '').trim();
+}
 // A usable product photo, not a loading spinner/placeholder (Amazon's cart spinner is
 // /images/G/…loading-large.gif; the real image is /images/I/…).
 function isProductPhoto(u) {
@@ -66,7 +73,7 @@ export function buildBrevoPayload({ senderEmail, senderName, guardianEmail, guar
       : title;
     const meta = renderStars(o.rating, o.reviewCount);
     const metaHtml = meta ? `<div style="color:#888;font-size:12px">${meta}</div>` : '';
-    const delivery = (typeof o.delivery === 'string' && o.delivery) ? o.delivery : '';
+    const delivery = (typeof o.delivery === 'string' && o.delivery) ? cleanDelivery(o.delivery) : '';
     const deliveryHtml = delivery ? `<div style="color:#555;font-size:12px">${escapeHtml(delivery)}</div>` : '';
     const price = (typeof o.price === 'number') ? ` · $${money(o.price)}` : '';
     const qtyNum = Number(o.qty);
