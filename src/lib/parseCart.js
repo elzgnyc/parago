@@ -151,16 +151,32 @@ function checkboxLabel(box) {
   return text.replace(/\s+/g, ' ').trim().toLowerCase();
 }
 
-// The selection checkbox for a line, or null. Matches by accessible name OR by
-// Amazon's select-column wrapper class; never returns a denylisted control.
+// The selection control for a line, or null. Amazon's markup for it varies wildly by
+// cart version — native <input type=checkbox>, an ARIA checkbox widget, labelled or
+// not — so we cast wide: take every checkbox-like control on the line that is NOT a
+// denylisted control (gift/subscribe/quantity/delete), then
+//   1. prefer one whose label/wrapper clearly marks it as the selector, else
+//   2. if the line has exactly ONE such control, treat it as the selector.
+// The denylist is the safety net: it stops a non-selection checkbox from ever being
+// read as the selector, which would wrongly hide a purchased item.
 function selectionCheckbox(node) {
-  for (const box of node.querySelectorAll('input[type="checkbox"]')) {
-    const label = checkboxLabel(box);
-    if (NON_SELECTION_LABEL_RE.test(label)) continue;
-    if (SELECTION_LABEL_RE.test(label)) return box;
-    if (box.closest('[class*="sc-list-item-checkbox" i], [class*="item-select" i]')) return box;
+  const boxes = [...node.querySelectorAll('input[type="checkbox"], [role="checkbox"]')]
+    .filter((b) => !NON_SELECTION_LABEL_RE.test(checkboxLabel(b)));
+  if (!boxes.length) return null;
+  for (const b of boxes) {
+    if (SELECTION_LABEL_RE.test(checkboxLabel(b)) ||
+        b.closest('[class*="sc-list-item-checkbox" i], [class*="item-select" i], [class*="itemselect" i]')) return b;
   }
-  return null;
+  return boxes.length === 1 ? boxes[0] : null;
+}
+
+// Is this control positively UNCHECKED? Native inputs expose `.checked`; ARIA
+// checkbox widgets expose aria-checked. Anything ambiguous counts as checked so an
+// unknown state never hides a purchased item.
+function isDeselected(box) {
+  if (!box) return false;
+  if (box.tagName === 'INPUT') return box.checked === false;
+  return box.getAttribute('aria-checked') === 'false';
 }
 
 // The active-cart subtree to parse within (falls back to the whole root).
@@ -178,7 +194,7 @@ function activeScope(root) {
 function cleanTitle(raw) {
   return String(raw || '')
     .replace(/\s+/g, ' ')
-    .replace(/opens in a new (tab|window)\b\.?/ig, '')
+    .replace(/\(?\s*opens?\s+in\s+(?:a\s+)?new\s+(?:tab|window)\s*\)?\.?/ig, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -195,8 +211,7 @@ export function parseCartItems(root = document) {
     // Send only what's actually checked out: skip a line ONLY when its selection
     // checkbox is positively unchecked. No checkbox / unknown markup → keep it, so we
     // never hide a real purchase from the guardian.
-    const sel = selectionCheckbox(node);
-    if (sel && !sel.checked) continue;
+    if (isDeselected(selectionCheckbox(node))) continue;
     const asin = node.getAttribute('data-asin') || null;
     if (asin && seen.has(asin)) continue;
     if (asin) seen.add(asin);
@@ -223,8 +238,7 @@ function hasDeselectedLine(root) {
   const scope = activeScope(root);
   for (const node of scope.querySelectorAll(ITEM_SELECTORS)) {
     if (node.closest(NON_PURCHASE_CONTAINERS)) continue;
-    const sel = selectionCheckbox(node);
-    if (sel && !sel.checked) return true;
+    if (isDeselected(selectionCheckbox(node))) return true;
   }
   return false;
 }

@@ -122,7 +122,7 @@
   }
   // Defensive title clean (older requests may carry Amazon's "Opens in a new tab" a11y text).
   function cleanTitle(t){
-    return String(t == null ? 'Item' : t).replace(/opens in a new (tab|window)\b\.?/ig,'').replace(/\s+/g,' ').trim() || 'Item';
+    return String(t == null ? 'Item' : t).replace(/\(?\s*opens?\s+in\s+(?:a\s+)?new\s+(?:tab|window)\s*\)?\.?/ig,' ').replace(/\s+/g,' ').trim() || 'Item';
   }
   function detailLine(label, value){
     var row = elt('div', { cls:'dl' });

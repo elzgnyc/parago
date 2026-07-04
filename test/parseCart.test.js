@@ -167,6 +167,17 @@ describe('parseCartItems cleans the title', () => {
       </div>`;
     expect(parseCartItems(document)[0].title).toBe('Wireless Earbuds');
   });
+
+  it('strips label variants: "opens in new tab", parenthesised, trailing period', () => {
+    const t = (raw) => {
+      document.body.innerHTML = `<div id="sc-active-cart"><div class="sc-list-item" data-asin="V">
+        <div class="sc-product-title">${raw}</div></div></div>`;
+      return parseCartItems(document)[0].title;
+    };
+    expect(t('Cable Opens in new tab')).toBe('Cable');
+    expect(t('Cable (opens in a new window)')).toBe('Cable');
+    expect(t('Cable Opens in a new tab.')).toBe('Cable');
+  });
 });
 
 describe('parseCartItems picks the real product image, not a spinner', () => {
@@ -244,6 +255,45 @@ describe('parseCartItems identifies the selection checkbox across cart variants'
         </div>
       </div>`;
     expect(parseCartItems(document).map((i) => i.title)).toEqual(['Still Purchased']);
+  });
+
+  it('excludes a single UNLABELLED checkbox that is unchecked (fallback when nothing marks it)', () => {
+    document.body.innerHTML = `
+      <div id="sc-active-cart">
+        <div class="sc-list-item" data-asin="BARE1">
+          <input type="checkbox" checked=""><div class="sc-product-title">Kept</div>
+        </div>
+        <div class="sc-list-item" data-asin="BARE2">
+          <input type="checkbox"><div class="sc-product-title">Dropped</div>
+        </div>
+      </div>`;
+    expect(parseCartItems(document).map((i) => i.title)).toEqual(['Kept']);
+  });
+
+  it('reads an ARIA checkbox widget (role=checkbox, aria-checked) not a native input', () => {
+    document.body.innerHTML = `
+      <div id="sc-active-cart">
+        <div class="sc-list-item" data-asin="ARIA1">
+          <span role="checkbox" aria-checked="true" aria-label="Select for checkout"></span>
+          <div class="sc-product-title">Kept</div>
+        </div>
+        <div class="sc-list-item" data-asin="ARIA2">
+          <span role="checkbox" aria-checked="false" aria-label="Select for checkout"></span>
+          <div class="sc-product-title">Dropped</div>
+        </div>
+      </div>`;
+    expect(parseCartItems(document).map((i) => i.title)).toEqual(['Kept']);
+  });
+
+  it('does NOT filter when the line has two ambiguous unlabelled checkboxes (never hide on doubt)', () => {
+    document.body.innerHTML = `
+      <div id="sc-active-cart">
+        <div class="sc-list-item" data-asin="AMB">
+          <input type="checkbox"><input type="checkbox" checked="">
+          <div class="sc-product-title">Kept On Doubt</div>
+        </div>
+      </div>`;
+    expect(parseCartItems(document).map((i) => i.title)).toEqual(['Kept On Doubt']);
   });
 });
 
