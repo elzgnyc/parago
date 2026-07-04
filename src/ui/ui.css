@@ -254,14 +254,15 @@ input.switch:focus-visible { box-shadow: 0 0 0 3px var(--accent-tint); }
   font-family: var(--font-display); font-weight: 600; font-size: 1.2rem;
   letter-spacing: -0.01em;
 }
-/* Switch + gear sized to the same visual height (26px) so they read as a matched pair. */
-.pop-switch { flex: 0 0 auto; width: 46px; height: 26px; }
-.pop-switch::before { width: 20px; height: 20px; top: 3px; left: 3px; }
-.pop-switch:checked::before { transform: translateX(20px); }
+/* Switch and gear balanced: a slimmer switch + a larger (22px) gear icon so the pair
+   reads as one control group instead of a fat toggle beside a tiny cog. */
+.pop-switch { flex: 0 0 auto; width: 40px; height: 23px; }
+.pop-switch::before { width: 17px; height: 17px; top: 3px; left: 3px; }
+.pop-switch:checked::before { transform: translateX(17px); }
 .pop-orders { margin-top: 16px; }
 .pop-icon-btn {
   flex: 0 0 auto; display: grid; place-items: center;
-  width: 30px; height: 30px; padding: 0;
+  width: 32px; height: 32px; padding: 0;
   border: 0; background: transparent; color: var(--ink-soft);
   border-radius: 8px; cursor: pointer;
 }
