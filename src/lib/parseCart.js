@@ -148,6 +148,17 @@ function activeScope(root) {
   return root;
 }
 
+// Amazon wraps product links with visually-hidden screen-reader text such as
+// "Opens in a new tab"; textContent picks it up, so it leaks into the title the
+// guardian sees (Telegram/email/approve page). Strip it and collapse whitespace.
+function cleanTitle(raw) {
+  return String(raw || '')
+    .replace(/\s+/g, ' ')
+    .replace(/opens in a new (tab|window)\b\.?/ig, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 export function parseCartItems(root = document) {
   const searchRoot = activeScope(root);
 
@@ -166,8 +177,7 @@ export function parseCartItems(root = document) {
     if (asin && seen.has(asin)) continue;
     if (asin) seen.add(asin);
     const titleEl = node.querySelector(TITLE_SELECTORS);
-    let title = titleEl ? titleEl.textContent : (node.getAttribute('data-name') || '');
-    title = (title || '').replace(/\s+/g, ' ').trim();
+    const title = cleanTitle(titleEl ? titleEl.textContent : node.getAttribute('data-name'));
     if (!title) continue;
 
     // Per-item unit price (NOT the cart grand total); null when absent.

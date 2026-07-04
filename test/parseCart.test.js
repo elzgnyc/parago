@@ -131,6 +131,18 @@ describe('parseCartItems enriches items with EASY fields', () => {
   });
 });
 
+describe('parseCartItems cleans the title', () => {
+  it('strips Amazon\'s "Opens in a new tab" screen-reader text', () => {
+    document.body.innerHTML = `
+      <div id="sc-active-cart">
+        <div class="sc-list-item" data-asin="A11Y">
+          <a class="sc-product-link">Wireless Earbuds<span>Opens in a new tab</span></a>
+        </div>
+      </div>`;
+    expect(parseCartItems(document)[0].title).toBe('Wireless Earbuds');
+  });
+});
+
 describe('parseCartItems picks the real product image, not a spinner', () => {
   it('reads data-a-dynamic-image when src is a loading spinner', () => {
     document.body.innerHTML = `

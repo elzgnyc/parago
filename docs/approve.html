@@ -5,21 +5,87 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Parago — Approve purchase</title>
 <style>
-  body{font-family:system-ui,sans-serif;max-width:34rem;margin:3rem auto;padding:0 1rem;color:#222}
-  button{font-size:1.1rem;padding:.7rem 1.4rem;margin:.4rem .4rem 0 0;border-radius:8px;border:0;cursor:pointer}
-  button[disabled]{opacity:.5;cursor:default}
-  .ok{background:#146eb4;color:#fff}.no{background:#b23b3b;color:#fff}
-  ul.items{list-style:none;padding:0;margin:0}
-  ul.items li{display:flex;gap:.75rem;align-items:flex-start;padding:.6rem 0;border-top:1px solid #eee}
+  @font-face{
+    font-family:"Stack Sans Notch";
+    src:url("fonts/stack-sans-notch.woff2") format("woff2");
+    font-weight:100 900;font-style:normal;font-display:swap;
+  }
+  :root{
+    --bg:#faf6ef;--surface:#fff;--ink:#211c16;--ink-soft:#6f665b;--line:#ece3d5;
+    --accent:#146eb4;--accent-strong:#0f5a94;--accent-tint:#e3eef8;--danger:#b3261e;
+    --amber:#de7921;--radius:16px;--radius-sm:10px;
+    --shadow:0 1px 2px rgba(33,28,22,.05),0 10px 30px rgba(33,28,22,.06);
+  }
+  @media (prefers-color-scheme:dark){
+    :root{--bg:#161a1f;--surface:#1f272f;--ink:#f3efe8;--ink-soft:#a9a396;--line:#2c353f;
+      --accent-tint:#14314a;--accent:#3d9be0;--accent-strong:#63b3ea;}
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:40rem;margin:0 auto;padding:22px 16px 56px}
+  .brand{display:flex;align-items:center;gap:10px;margin:6px 2px 16px}
+  .brand .mark{font-family:"Stack Sans Notch",system-ui,sans-serif;font-weight:800;
+    font-size:1.3rem;color:var(--accent);letter-spacing:.2px}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+    box-shadow:var(--shadow);padding:24px}
+  h1{font-family:"Stack Sans Notch",system-ui,sans-serif;font-size:1.5rem;margin:0 0 2px;line-height:1.2}
+  .when{color:var(--ink-soft);font-size:.9rem;margin:0 0 16px}
+  .total{display:flex;align-items:baseline;gap:8px;padding:12px 14px;background:var(--accent-tint);
+    border-radius:var(--radius-sm);margin:0 0 6px}
+  .total .lbl{color:var(--ink-soft);font-size:.85rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+  .total .amt{font-family:"Stack Sans Notch",system-ui,sans-serif;font-weight:800;font-size:1.5rem;margin-left:auto;color:var(--accent-strong)}
+  .count{color:var(--ink-soft);font-size:.85rem;margin:10px 2px 2px}
+  ul.items{list-style:none;padding:0;margin:8px 0 4px}
+  ul.items li{display:flex;gap:14px;padding:16px 0;border-top:1px solid var(--line)}
   ul.items li:first-child{border-top:0}
-  .thumb{width:64px;height:64px;object-fit:contain;flex:0 0 auto;border-radius:6px;background:#f6f6f6}
-  .it-body{min-width:0;flex:1 1 auto}.it-title{font-weight:600}.it-title a{color:inherit}
-  .it-meta{color:#888;font-size:.85rem;margin-top:.15rem}
-  .muted{color:#888}.err{color:#b23b3b}
+  .num{flex:0 0 auto;width:22px;height:22px;border-radius:50%;background:var(--accent-tint);
+    color:var(--accent-strong);font-size:.72rem;font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:2px}
+  .thumb{width:76px;height:76px;object-fit:contain;flex:0 0 auto;border-radius:var(--radius-sm);
+    background:#f6f3ee;border:1px solid var(--line)}
+  .it-body{min-width:0;flex:1 1 auto}
+  .it-title{font-weight:600;line-height:1.32}
+  .it-title a{color:var(--ink);text-decoration:none}
+  .it-title a:hover{color:var(--accent);text-decoration:underline}
+  .it-facts{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center;margin-top:6px;font-size:.86rem;color:var(--ink-soft)}
+  .it-facts .price{color:var(--ink);font-weight:700}
+  .it-facts .stars{color:var(--amber);letter-spacing:1px}
+  .it-facts a{color:var(--accent);text-decoration:none}
+  .it-facts a:hover{text-decoration:underline}
+  .it-asin{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.74rem}
+  .it-links{display:flex;flex-wrap:wrap;gap:8px 10px;margin-top:9px}
+  .chip{display:inline-flex;align-items:center;gap:5px;font-size:.8rem;font-weight:600;
+    text-decoration:none;color:var(--accent);padding:5px 10px;border:1px solid var(--line);
+    border-radius:999px;background:var(--surface)}
+  .chip:hover{border-color:var(--accent);background:var(--accent-tint)}
+  .chip svg{width:13px;height:13px}
+  .actions{display:flex;gap:10px;margin-top:22px}
+  button{font:inherit;font-weight:700;font-size:1rem;padding:13px 18px;border-radius:var(--radius-sm);
+    border:1.5px solid transparent;cursor:pointer;flex:1 1 0;transition:background .12s,border-color .12s}
+  .ok{background:var(--accent);color:#fff}
+  .ok:hover{background:var(--accent-strong)}
+  .no{background:transparent;color:var(--danger);border-color:var(--line)}
+  .no:hover{border-color:var(--danger)}
+  button[disabled]{opacity:.5;cursor:default}
+  .note{color:var(--danger);font-size:.9rem;margin:12px 2px 0;min-height:1px}
+  .center{text-align:center;padding:26px 0;color:var(--ink-soft)}
+  .spinner{width:30px;height:30px;margin:0 auto 12px;border:3px solid var(--line);
+    border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .done-badge{font-family:"Stack Sans Notch",system-ui,sans-serif;font-size:1.6rem;font-weight:800}
+  .done-badge.ok{color:var(--accent-strong)}
+  .done-badge.no{color:var(--danger)}
+  .retry{margin-top:10px;font:inherit;color:var(--accent);background:none;border:0;cursor:pointer;text-decoration:underline;padding:0}
 </style>
 </head>
 <body>
-<div id="app" class="muted">Loading…</div>
+<div class="wrap">
+  <div class="brand"><span class="mark">Parago</span></div>
+  <div class="card" id="app">
+    <div class="center"><div class="spinner"></div>Loading this request…</div>
+  </div>
+</div>
 <script>
   // The decision Edge Function (JSON API). Public, non-secret — same base the
   // extension uses. GET ?token returns the purchase; POST {token,verdict} records it.
@@ -28,125 +94,192 @@
   var app = document.getElementById('app');
   var token = new URLSearchParams(location.search).get('token') || '';
 
-  function clear(el) { while (el.firstChild) el.removeChild(el.firstChild); }
-  function elt(tag, opts) {
+  function clear(el){ while(el.firstChild) el.removeChild(el.firstChild); }
+  function elt(tag, opts){
     var e = document.createElement(tag); opts = opts || {};
     if (opts.text != null) e.textContent = opts.text;
     if (opts.cls) e.className = opts.cls;
+    if (opts.href) { e.href = opts.href; e.target = '_blank'; e.rel = 'noopener'; }
     return e;
   }
-  function httpUrl(u) { return (typeof u === 'string' && /^https?:\/\//i.test(u)) ? u : null; }
-  function money(n) { return (typeof n === 'number' && isFinite(n)) ? n.toFixed(2) : '—'; }
-  function today() { return new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }); }
+  function httpUrl(u){ return (typeof u === 'string' && /^https?:\/\//i.test(u)) ? u : null; }
+  function money(n){ return (typeof n === 'number' && isFinite(n)) ? n.toFixed(2) : '—'; }
+  function today(){ return new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'}); }
 
-  // Mirror of the server/email star rendering. rating 0..5; reviewCount optional.
-  function stars(rating, reviewCount) {
-    var cr = Math.max(0, Math.min(5, rating));
-    var r2 = Math.round(cr * 2) / 2, full = Math.floor(r2), half = (r2 - full) === 0.5;
-    var empty = 5 - full - (half ? 1 : 0);
-    var s = '★'.repeat(full) + (half ? '½' : '') + '☆'.repeat(empty);
-    var count = (typeof reviewCount === 'number' && isFinite(reviewCount))
-      ? ' · ' + Math.round(reviewCount).toLocaleString() + ' ratings' : '';
-    return s + ' ' + cr.toFixed(1) + count;
+  // Only real product photos (Amazon serves them under /images/I/); reject inline
+  // placeholders and loading spinners so the guardian never sees an infinite wheel.
+  function productImage(u){
+    if (!httpUrl(u) || /^data:/i.test(u)) return null;
+    return /(?:media-amazon|images-amazon|ssl-images-amazon)\.com\/images\/I\//i.test(u) ? u : null;
   }
+  // Defensive title clean (older requests may carry Amazon's "Opens in a new tab" a11y text).
+  function cleanTitle(t){
+    return String(t == null ? 'Item' : t).replace(/opens in a new (tab|window)\b\.?/ig,'').replace(/\s+/g,' ').trim() || 'Item';
+  }
+  function amazonDp(asin){ return asin ? 'https://www.amazon.com/dp/' + encodeURIComponent(asin) : null; }
+  function amazonReviews(asin){ return asin ? 'https://www.amazon.com/product-reviews/' + encodeURIComponent(asin) : null; }
 
-  function message(title, sub) {
-    clear(app); app.className = '';
-    app.appendChild(elt('h1', { text: title }));
-    if (sub) app.appendChild(elt('p', { cls: 'muted', text: sub }));
+  // rating 0..5; reviewCount optional.
+  function starString(rating){
+    var cr = Math.max(0, Math.min(5, rating));
+    var r2 = Math.round(cr*2)/2, full = Math.floor(r2), half = (r2-full)===0.5;
+    return '★'.repeat(full) + (half?'½':'') + '☆'.repeat(5-full-(half?1:0));
   }
 
   var REASONS = {
-    not_found: 'This link is not valid.',
-    invalid: 'This link is not valid.',
-    used: 'This request was already decided.',
-    decided: 'This request was already decided.',
-    expired: 'This link has expired.',
+    not_found:'This link is not valid.', invalid:'This link is not valid.',
+    used:'This request was already decided.', decided:'This request was already decided.',
+    expired:'This link has expired.',
   };
 
-  // Build one product row with DOM nodes (no innerHTML) so a hostile title/url can't inject markup.
-  function itemRow(it) {
+  var svgCart = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.7 13.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L23 6H6"/></svg>';
+  var svgStar = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1L12 2z"/></svg>';
+  function chip(text, href, svg){
+    var a = elt('a', { cls:'chip', href:href });
+    var s = elt('span'); s.innerHTML = svg; // trusted static icon
+    a.appendChild(s.firstChild); a.appendChild(document.createTextNode(text));
+    return a;
+  }
+
+  // One product row built from DOM nodes (no innerHTML for data) so a hostile
+  // title/url can't inject markup.
+  function itemRow(it, i){
     var li = elt('li');
-    var img = httpUrl(it && it.image);
-    if (img) { var im = elt('img', { cls: 'thumb' }); im.src = img; im.alt = ''; li.appendChild(im); }
-    var bodyEl = elt('div', { cls: 'it-body' });
+    li.appendChild(elt('span', { cls:'num', text:String(i+1) }));
 
-    var titleEl = elt('div', { cls: 'it-title' });
-    var titleText = (it && it.title) ? String(it.title) : 'Item';
-    var url = httpUrl(it && it.url);
-    if (url) {
-      var a = elt('a', { text: titleText }); a.href = url; a.target = '_blank'; a.rel = 'noopener';
-      titleEl.appendChild(a);
-    } else {
-      titleEl.appendChild(document.createTextNode(titleText));
+    var img = productImage(it && it.image);
+    if (img){
+      var im = elt('img', { cls:'thumb' }); im.src = img; im.alt = '';
+      im.onerror = function(){ im.remove(); };   // broken URL → drop it, never a spinner
+      li.appendChild(im);
     }
-    if (typeof it.price === 'number') titleEl.appendChild(document.createTextNode(' · $' + money(it.price)));
-    if (isFinite(Number(it.qty)) && Number(it.qty) > 1) titleEl.appendChild(document.createTextNode(' × ' + Math.round(Number(it.qty))));
-    bodyEl.appendChild(titleEl);
 
-    if (typeof it.rating === 'number' && isFinite(it.rating)) {
-      bodyEl.appendChild(elt('div', { cls: 'it-meta', text: stars(it.rating, it.reviewCount) }));
+    var body = elt('div', { cls:'it-body' });
+    var dp = amazonDp(it && it.asin) || httpUrl(it && it.url);
+    var titleEl = elt('div', { cls:'it-title' });
+    var titleText = cleanTitle(it && it.title);
+    if (dp) titleEl.appendChild(elt('a', { text:titleText, href:dp }));
+    else titleEl.appendChild(document.createTextNode(titleText));
+    body.appendChild(titleEl);
+
+    var facts = elt('div', { cls:'it-facts' });
+    if (typeof it.price === 'number'){
+      var line = it.price * (isFinite(Number(it.qty)) && Number(it.qty)>0 ? Number(it.qty) : 1);
+      facts.appendChild(elt('span', { cls:'price', text:'$' + money(it.price) }));
+      if (isFinite(Number(it.qty)) && Number(it.qty) > 1){
+        facts.appendChild(elt('span', { text:'× ' + Math.round(Number(it.qty)) }));
+        facts.appendChild(elt('span', { text:'= $' + money(line) }));
+      }
     }
-    li.appendChild(bodyEl);
+    if (typeof it.rating === 'number' && isFinite(it.rating)){
+      var rev = amazonReviews(it && it.asin);
+      var starText = starString(it.rating) + ' ' + Math.max(0,Math.min(5,it.rating)).toFixed(1);
+      var countText = (typeof it.reviewCount === 'number' && isFinite(it.reviewCount))
+        ? Math.round(it.reviewCount).toLocaleString() + ' ratings' : null;
+      var starEl = elt('span', { cls:'stars', text:starText });
+      facts.appendChild(starEl);
+      if (countText){
+        if (rev) facts.appendChild(elt('a', { text:countText, href:rev }));
+        else facts.appendChild(elt('span', { text:countText }));
+      }
+    }
+    if (it && it.asin) facts.appendChild(elt('span', { cls:'it-asin', text:'ASIN ' + it.asin }));
+    if (facts.childNodes.length) body.appendChild(facts);
+
+    // Detailed info (reviews, date first available, rank, Q&A) lives on Amazon and
+    // opens the app on a phone — surface it as one tap rather than guess at fields
+    // the cart never exposes.
+    var links = elt('div', { cls:'it-links' });
+    if (dp) links.appendChild(chip('View on Amazon', dp, svgCart));
+    var rev2 = amazonReviews(it && it.asin);
+    if (rev2) links.appendChild(chip('Reviews & details', rev2, svgStar));
+    if (links.childNodes.length) body.appendChild(links);
+
+    li.appendChild(body);
     return li;
   }
 
-  function renderApproval(data) {
-    clear(app); app.className = '';
-    app.appendChild(elt('h1', { text: 'Approve this purchase?' }));
-    if (data.guardianName) app.appendChild(elt('p', { text: 'Requested approval from ' + data.guardianName + '.' }));
+  function centered(nodes){
+    clear(app);
+    var d = elt('div', { cls:'center' });
+    nodes.forEach(function(n){ d.appendChild(n); });
+    app.appendChild(d);
+  }
+  function message(title, sub){
+    centered([elt('h1', { text:title }), sub ? elt('p', { cls:'when', text:sub }) : document.createTextNode('')]);
+  }
 
-    var totalP = elt('p'); totalP.appendChild(elt('strong', { text: 'Total: $' + money(data.total) }));
-    app.appendChild(totalP);
-    app.appendChild(elt('p', { cls: 'muted', text: today() }));
+  function renderApproval(data){
+    clear(app);
+    app.appendChild(elt('h1', { text:'Approve this purchase?' }));
+    app.appendChild(elt('p', { cls:'when', text:today() }));
 
-    var ul = elt('ul', { cls: 'items' });
-    (Array.isArray(data.items) ? data.items : []).forEach(function (it) { ul.appendChild(itemRow(it || {})); });
+    var items = Array.isArray(data.items) ? data.items : [];
+    var total = elt('div', { cls:'total' });
+    total.appendChild(elt('span', { cls:'lbl', text:'Total' }));
+    total.appendChild(elt('span', { cls:'amt', text:'$' + money(data.total) }));
+    app.appendChild(total);
+    app.appendChild(elt('p', { cls:'count', text:items.length + (items.length === 1 ? ' item' : ' items') }));
+
+    var ul = elt('ul', { cls:'items' });
+    items.forEach(function(it, i){ ul.appendChild(itemRow(it || {}, i)); });
     app.appendChild(ul);
 
-    var bar = elt('div');
-    var approve = elt('button', { cls: 'ok', text: 'Approve' });
-    var reject = elt('button', { cls: 'no', text: 'Reject' });
-    var note = elt('p', { cls: 'err' });
-    function decide(verdict) {
+    var bar = elt('div', { cls:'actions' });
+    var approve = elt('button', { cls:'ok', text:'Approve' });
+    var reject = elt('button', { cls:'no', text:'Reject' });
+    var note = elt('p', { cls:'note' });
+    function decide(verdict){
       approve.disabled = reject.disabled = true; note.textContent = '';
       fetch(DECISION_URL, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: token, verdict: verdict }),
-      }).then(function (r) { return r.json(); }).then(function (res) {
-        if (res && res.ok) {
-          // Show the verdict the SERVER recorded (res.status), not the button we
-          // clicked: on a race the server may have stored the other surface's
-          // decision, and we must not claim an outcome it did not save.
-          var st = res.status || verdict;
-          var word = st === 'approved' ? 'Approved' : 'Rejected';
-          message(word, word + ' on ' + today() + '. You can close this page.');
-        } else if (res && res.reason && REASONS[res.reason]) {
+        method:'POST', headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify({ token:token, verdict:verdict }),
+      }).then(function(r){ return r.json(); }).then(function(res){
+        if (res && res.ok){
+          // Show the verdict the SERVER recorded (res.status), not the button clicked.
+          var st = res.status || verdict, word = st === 'approved' ? 'Approved' : 'Rejected';
+          clear(app);
+          app.appendChild(elt('div', { cls:'done-badge ' + (st==='approved'?'ok':'no'), text:word }));
+          app.appendChild(elt('p', { cls:'when', text:word + ' on ' + today() + '. You can close this page.' }));
+        } else if (res && res.reason && REASONS[res.reason]){
           message(REASONS[res.reason]);
         } else {
           approve.disabled = reject.disabled = false;
           note.textContent = 'Something went wrong. Please try again.';
         }
-      }).catch(function () {
+      }).catch(function(){
         approve.disabled = reject.disabled = false;
         note.textContent = 'Network error. Check your connection and try again.';
       });
     }
-    approve.addEventListener('click', function () { decide('approved'); });
-    reject.addEventListener('click', function () { decide('rejected'); });
-    bar.appendChild(approve); bar.appendChild(reject); bar.appendChild(note);
-    app.appendChild(bar);
+    approve.addEventListener('click', function(){ decide('approved'); });
+    reject.addEventListener('click', function(){ decide('rejected'); });
+    bar.appendChild(approve); bar.appendChild(reject);
+    app.appendChild(bar); app.appendChild(note);
   }
 
-  function load() {
-    if (!token) { message('Invalid link'); return; }
-    fetch(DECISION_URL + '?token=' + encodeURIComponent(token))
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
+  function load(){
+    if (!token){ message('Invalid link'); return; }
+    clear(app);
+    app.appendChild((function(){ var d = elt('div',{cls:'center'}); d.appendChild(elt('div',{cls:'spinner'})); d.appendChild(document.createTextNode('Loading this request…')); return d; })());
+    // Abort a hung request so the spinner never spins forever.
+    var ctrl = new AbortController();
+    var timer = setTimeout(function(){ ctrl.abort(); }, 15000);
+    fetch(DECISION_URL + '?token=' + encodeURIComponent(token), { signal: ctrl.signal })
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        clearTimeout(timer);
         if (data && data.ok) renderApproval(data);
         else message(REASONS[data && data.reason] || 'This link cannot be used.');
       })
-      .catch(function () { message('Could not load this request.', 'Check your connection and refresh the page.'); });
+      .catch(function(){
+        clearTimeout(timer);
+        centered([
+          elt('h1', { text:'Could not load this request.' }),
+          elt('p', { cls:'when', text:'Check your connection.' }),
+          (function(){ var b = elt('button',{cls:'retry',text:'Try again'}); b.addEventListener('click', load); return b; })(),
+        ]);
+      });
   }
   load();
 </script>
