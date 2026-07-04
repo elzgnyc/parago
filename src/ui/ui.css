@@ -96,8 +96,13 @@ body.options { padding: 40px 28px 56px; }
 .brand { display: flex; align-items: center; gap: 13px; margin-bottom: 22px; }
 /* Center the logo + name; float the theme/detail controls to the right without
    pushing the brand off-center. */
-.options .brand { justify-content: center; position: relative; }
+.options .brand { justify-content: center; position: relative; flex-wrap: wrap; }
 .options .brand-controls { position: absolute; right: 0; top: 50%; transform: translateY(-50%); }
+/* Narrow screens: don't overlap the centered logo with the absolute controls; stack. */
+@media (max-width: 620px) {
+  .options .brand { flex-direction: column; gap: 12px; }
+  .options .brand-controls { position: static; transform: none; }
+}
 .brand-name { display: flex; align-items: center; gap: 12px; }
 .brand-logo { width: 40px; height: 40px; border-radius: 10px; object-fit: contain; }
 .brand .logo {
