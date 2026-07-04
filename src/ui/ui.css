@@ -1,3 +1,13 @@
+/* Self-hosted so the extension needs no CDN (MV3 CSP blocks remote fonts, and
+   the UI assets are kept local). Variable weight axis in one file. */
+@font-face {
+  font-family: "Stack Sans Notch";
+  src: url("fonts/stack-sans-notch.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --bg: #faf6ef;
   --surface: #ffffff;
@@ -11,7 +21,7 @@
   --radius: 16px;
   --radius-sm: 10px;
   --shadow: 0 1px 2px rgba(33, 28, 22, 0.05), 0 10px 30px rgba(33, 28, 22, 0.06);
-  --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+  --font-display: "Stack Sans Notch", system-ui, "Segoe UI", sans-serif;
   --font-body: "Hanken Grotesk", system-ui, Arial, sans-serif;
   font-size: 17px;
 }
