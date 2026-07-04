@@ -54,7 +54,39 @@ export function parseCartTotal(root = document) {
 const ITEM_SELECTORS = '.sc-list-item[data-asin], [data-asin].sc-list-item, [data-name][data-asin]';
 const TITLE_SELECTORS = '.sc-product-title, .a-truncate-full, a.sc-product-link, .sc-product-link';
 const ITEM_PRICE_SELECTORS = '.sc-product-price, .a-price .a-offscreen';
-const ITEM_IMAGE_SELECTORS = 'img.sc-product-image, img[data-old-hires], img';
+
+// A real Amazon product photo. Everything the cart serves for a product lives under
+// .../images/I/; spinners, sprites and badges (loading gif, Prime logo, 1px pixels)
+// do not, so requiring that path rejects them. Also reject inline data: placeholders.
+function isProductImageUrl(u) {
+  if (!u || /^data:/i.test(u)) return false;
+  return /^https?:\/\//i.test(u) && /(?:media-amazon|images-amazon|ssl-images-amazon)\.com\/images\/I\//i.test(u);
+}
+
+// Candidate URLs for one <img>, most-reliable first. At parse time (document_idle)
+// a lazy-loaded img's `src` is often still a spinner/placeholder, while Amazon puts
+// the real URL eagerly in data-a-dynamic-image (a JSON map of url->[w,h]) and
+// data-old-hires. Read those before src; srcset last.
+function imageCandidates(img) {
+  const out = [];
+  const dyn = img.getAttribute('data-a-dynamic-image');
+  if (dyn) { try { for (const k of Object.keys(JSON.parse(dyn))) out.push(k); } catch { /* not JSON */ } }
+  const hires = img.getAttribute('data-old-hires'); if (hires) out.push(hires);
+  const src = img.getAttribute('src'); if (src) out.push(src);
+  const srcset = img.getAttribute('srcset');
+  if (srcset) { const last = srcset.split(',').map((s) => s.trim().split(/\s+/)[0]).filter(Boolean).pop(); if (last) out.push(last); }
+  return out;
+}
+
+// The product photo for a cart line. Try the known product-image element first, then
+// any img, and within each take the first candidate that is a real product URL.
+function pickImageUrl(node) {
+  const imgs = [node.querySelector('img.sc-product-image'), ...node.querySelectorAll('img')].filter(Boolean);
+  for (const img of imgs) {
+    for (const u of imageCandidates(img)) if (isProductImageUrl(u)) return u;
+  }
+  return node.getAttribute('data-image') || null;
+}
 
 // Deterministic per-item quantity (feeds snapshot matching; flaky qty causes
 // spurious re-approvals). Read explicit markup first, displayed text last; any
@@ -77,12 +109,35 @@ function parseItemQty(node) {
 const ACTIVE_CART_CONTAINERS = ['#sc-active-cart', '#activeCartViewForm', '#sc-active-cart-content'];
 const NON_PURCHASE_CONTAINERS = '#sc-saved-cart, #saved-for-later';
 
-// Amazon's per-line selection checkbox: aria-label "Select <product> for checkout".
-// A DEselected line stays in the cart and out of the subtotal but is NOT being
-// purchased, so only checked lines should reach the guardian. Identify the control
-// by its aria-label so other checkboxes (e.g. gift options) never trigger exclusion.
-// (aria-label is Amazon-locale text; this matches the amazon.com English wording.)
-const SELECTION_CHECKBOX = 'input[type="checkbox"][aria-label*="for checkout" i]';
+// Amazon's per-line selection checkbox. A DEselected line stays in the cart and out
+// of the subtotal but is NOT being purchased, so only checked lines reach the
+// guardian. Amazon's wording/markup for this control varies by cart version, so
+// identify it a few ways; a denylist keeps gift/subscribe/delete checkboxes from ever
+// being read as the selection control (which would wrongly hide a purchased item).
+const SELECTION_LABEL_RE = /for checkout|select\b.*\bitem|select\b.*\bfor\b/i;
+const NON_SELECTION_LABEL_RE = /gift|subscribe|save for later|delete|remove|compare|coupon|clip|quantity/i;
+
+// Accessible name of a checkbox: aria-label, aria-labelledby targets, or a wrapping
+// <label>. Lowercased for matching.
+function checkboxLabel(box) {
+  let text = box.getAttribute('aria-label') || '';
+  const by = box.getAttribute('aria-labelledby');
+  if (by) for (const id of by.split(/\s+/)) { const e = box.ownerDocument.getElementById(id); if (e) text += ' ' + e.textContent; }
+  const lbl = box.closest('label'); if (lbl) text += ' ' + lbl.textContent;
+  return text.replace(/\s+/g, ' ').trim().toLowerCase();
+}
+
+// The selection checkbox for a line, or null. Matches by accessible name OR by
+// Amazon's select-column wrapper class; never returns a denylisted control.
+function selectionCheckbox(node) {
+  for (const box of node.querySelectorAll('input[type="checkbox"]')) {
+    const label = checkboxLabel(box);
+    if (NON_SELECTION_LABEL_RE.test(label)) continue;
+    if (SELECTION_LABEL_RE.test(label)) return box;
+    if (box.closest('[class*="sc-list-item-checkbox" i], [class*="item-select" i]')) return box;
+  }
+  return null;
+}
 
 // The active-cart subtree to parse within (falls back to the whole root).
 function activeScope(root) {
@@ -105,7 +160,7 @@ export function parseCartItems(root = document) {
     // Send only what's actually checked out: skip a line ONLY when its selection
     // checkbox is positively unchecked. No checkbox / unknown markup → keep it, so we
     // never hide a real purchase from the guardian.
-    const sel = node.querySelector(SELECTION_CHECKBOX);
+    const sel = selectionCheckbox(node);
     if (sel && !sel.checked) continue;
     const asin = node.getAttribute('data-asin') || null;
     if (asin && seen.has(asin)) continue;
@@ -119,8 +174,7 @@ export function parseCartItems(root = document) {
     const priceEl = node.querySelector(ITEM_PRICE_SELECTORS);
     const price = priceEl ? parseCurrency(priceEl.textContent) : null;
     const qty = parseItemQty(node);
-    const imgEl = node.querySelector(ITEM_IMAGE_SELECTORS);
-    const image = (imgEl && imgEl.getAttribute('src')) || node.getAttribute('data-image') || null;
+    const image = pickImageUrl(node);
     const url = asin ? ('https://www.amazon.com/dp/' + asin) : null;
     items.push({ asin, title, price, qty, image, url });
   }
@@ -133,7 +187,7 @@ function hasDeselectedLine(root) {
   const scope = activeScope(root);
   for (const node of scope.querySelectorAll(ITEM_SELECTORS)) {
     if (node.closest(NON_PURCHASE_CONTAINERS)) continue;
-    const sel = node.querySelector(SELECTION_CHECKBOX);
+    const sel = selectionCheckbox(node);
     if (sel && !sel.checked) return true;
   }
   return false;

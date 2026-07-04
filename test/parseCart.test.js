@@ -131,6 +131,84 @@ describe('parseCartItems enriches items with EASY fields', () => {
   });
 });
 
+describe('parseCartItems picks the real product image, not a spinner', () => {
+  it('reads data-a-dynamic-image when src is a loading spinner', () => {
+    document.body.innerHTML = `
+      <div id="sc-active-cart">
+        <div class="sc-list-item" data-asin="SPIN">
+          <div class="sc-product-title">Lazy Image Item</div>
+          <img class="sc-product-image"
+               src="https://images-na.ssl-images-amazon.com/images/G/01/x-locale/common/spinner.gif"
+               data-a-dynamic-image='{"https://m.media-amazon.com/images/I/71real.jpg":[500,500]}'>
+        </div>
+      </div>`;
+    expect(parseCartItems(document)[0].image).toBe('https://m.media-amazon.com/images/I/71real.jpg');
+  });
+
+  it('rejects a data: URI placeholder and falls back to data-old-hires', () => {
+    document.body.innerHTML = `
+      <div id="sc-active-cart">
+        <div class="sc-list-item" data-asin="DATAURI">
+          <div class="sc-product-title">Placeholder Item</div>
+          <img class="sc-product-image" src="data:image/gif;base64,R0lGODlh"
+               data-old-hires="https://m.media-amazon.com/images/I/81hires.jpg">
+        </div>
+      </div>`;
+    expect(parseCartItems(document)[0].image).toBe('https://m.media-amazon.com/images/I/81hires.jpg');
+  });
+
+  it('skips a non-product img (e.g. a Prime badge sprite) and returns null', () => {
+    document.body.innerHTML = `
+      <div id="sc-active-cart">
+        <div class="sc-list-item" data-asin="BADGE">
+          <div class="sc-product-title">Badge Only</div>
+          <img src="https://m.media-amazon.com/images/G/01/prime/badge.png">
+        </div>
+      </div>`;
+    expect(parseCartItems(document)[0].image).toBeNull();
+  });
+});
+
+describe('parseCartItems identifies the selection checkbox across cart variants', () => {
+  it('excludes an unchecked box found by its select-column wrapper class (no "for checkout" label)', () => {
+    document.body.innerHTML = `
+      <div id="sc-active-cart">
+        <div class="sc-list-item" data-asin="WRAP1">
+          <span class="a-checkbox sc-list-item-checkbox"><label><input type="checkbox" checked=""></label></span>
+          <div class="sc-product-title">Kept</div>
+        </div>
+        <div class="sc-list-item" data-asin="WRAP2">
+          <span class="a-checkbox sc-list-item-checkbox"><label><input type="checkbox"></label></span>
+          <div class="sc-product-title">Dropped</div>
+        </div>
+      </div>`;
+    expect(parseCartItems(document).map((i) => i.title)).toEqual(['Kept']);
+  });
+
+  it('reads an aria-labelledby name to recognize the selection control', () => {
+    document.body.innerHTML = `
+      <div id="sc-active-cart">
+        <div class="sc-list-item" data-asin="LBLBY">
+          <span id="lbl1">Select this item for checkout</span>
+          <input type="checkbox" aria-labelledby="lbl1">
+          <div class="sc-product-title">By Labelledby</div>
+        </div>
+      </div>`;
+    expect(parseCartItems(document).map((i) => i.title)).toEqual([]);
+  });
+
+  it('never treats a quantity/gift checkbox in the item as the selection control', () => {
+    document.body.innerHTML = `
+      <div id="sc-active-cart">
+        <div class="sc-list-item" data-asin="QTYBOX">
+          <input type="checkbox" aria-label="Update quantity">
+          <div class="sc-product-title">Still Purchased</div>
+        </div>
+      </div>`;
+    expect(parseCartItems(document).map((i) => i.title)).toEqual(['Still Purchased']);
+  });
+});
+
 // Amazon marks each active-cart line with a "Select <product> for checkout"
 // checkbox. A DEselected item stays in the cart (and out of the subtotal) but is
 // NOT being purchased, so it must not reach the guardian. Only what's checked out
