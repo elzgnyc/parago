@@ -9,22 +9,33 @@ import { corsHeaders, preflight } from '../_shared/cors.js';
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders(), 'Content-Type': 'application/json' } });
 
-// Confirm a web-page decision back to the guardian's Telegram chat, so a decision
-// made on approve.html is reflected in Telegram too (not just the browser). Best
-// effort: never let a Telegram hiccup fail the decision that was already recorded.
-async function notifyTelegram(chatId: number, verdict: string, total: unknown) {
+// Reflect a web-page decision in Telegram, keeping every surface consistent: COLLAPSE
+// the original approval message (the one with the buttons) to the same one-line summary
+// + Undo the webhook uses, so it never lingers as a wall of text with live buttons. If
+// the message id wasn't stored (older request), fall back to a separate confirmation.
+// Best effort throughout — a Telegram hiccup must never fail an already-recorded decision.
+async function notifyTelegram(row: any, verdict: string, total: unknown) {
   const botToken = Deno.env.get('TELEGRAM_BOT_TOKEN');
+  const chatId = row?.telegram_chat_id;
   if (!botToken || !chatId) return;
-  const when = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-  const amount = typeof total === 'number' && isFinite(total) ? ` ($${total.toFixed(2)})` : '';
-  const text = verdict === 'approved'
-    ? `Purchase approved${amount} on ${when}. Parago will complete the checkout.`
-    : `Purchase rejected${amount} on ${when}.`;
+  const when = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  const amount = typeof total === 'number' && isFinite(total) ? ` · $${total.toFixed(2)}` : '';
+  const n = Array.isArray(row.items) ? row.items.length : 0;
+  const items = n ? ` · ${n} item${n > 1 ? 's' : ''}` : '';
+  const summary = `${verdict === 'approved' ? 'Approved' : 'Rejected'}${amount}${items} · ${when}`;
+  const reply_markup = { inline_keyboard: [[{ text: 'Undo', callback_data: 'u:' + row.token }]] };
+  const post = (method: string, payload: unknown) => fetch(`https://api.telegram.org/bot${botToken}/${method}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+  });
   try {
-    await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: chatId, text, disable_web_page_preview: true }),
-    });
+    const messageId = row.telegram_message_id;
+    if (messageId != null) {
+      const r = await post('editMessageText', { chat_id: chatId, message_id: messageId, text: summary, reply_markup, disable_web_page_preview: true });
+      const ok = (await r.json().catch(() => null))?.ok;
+      if (!ok) await post('editMessageCaption', { chat_id: chatId, message_id: messageId, caption: summary, reply_markup }); // photo message
+    } else {
+      await post('sendMessage', { chat_id: chatId, text: summary, disable_web_page_preview: true });
+    }
   } catch { /* best effort */ }
 }
 
@@ -97,7 +108,7 @@ Deno.serve(async (req) => {
     // This call is the one that recorded the verdict → confirm it back to Telegram
     // (only the web page reaches this function; a Telegram tap goes to the webhook).
     const finalTotal = (patch.total != null) ? patch.total : row.total;
-    if (row.telegram_chat_id) await notifyTelegram(row.telegram_chat_id, verdict, finalTotal);
+    if (row.telegram_chat_id) await notifyTelegram(row, verdict, finalTotal);
     return json({ ok: true, status: verdict });
   }
 

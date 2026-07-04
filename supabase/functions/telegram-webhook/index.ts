@@ -171,8 +171,17 @@ Deno.serve(async (req) => {
 
     const guard = isActionable(row, Date.now());
     if (!guard.ok) {
-      await tg('answerCallbackQuery', { callback_query_id: cbId, text: 'Already decided or expired.' });
-      await tg('editMessageReplyMarkup', { chat_id: chatId, message_id: messageId, reply_markup: { inline_keyboard: [] } });
+      // Already decided (e.g. on the web page) or expired. Collapse to the RECORDED
+      // verdict so the Telegram message matches every other surface — not just a
+      // buttons-cleared full list.
+      const st = row.status;
+      if (st === 'approved' || st === 'rejected') {
+        await tg('answerCallbackQuery', { callback_query_id: cbId, text: st === 'approved' ? 'Already approved.' : 'Already rejected.' });
+        await collapseMessage(chatId, cq.message, st, row);
+      } else {
+        await tg('answerCallbackQuery', { callback_query_id: cbId, text: guard.reason === 'expired' ? 'This request has expired.' : 'This request is no longer available.' });
+        await tg('editMessageReplyMarkup', { chat_id: chatId, message_id: messageId, reply_markup: { inline_keyboard: [] } });
+      }
       return json({ ok: true });
     }
     const { data: updated, error } = await supabase.from('purchase_requests')

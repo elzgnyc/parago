@@ -112,18 +112,26 @@ Deno.serve(async (req) => {
     // a media group anyway. If the button-bearing send fails, fall back to a text-only
     // message so the approval is never lost.
     let delivered = false;
+    let buttonMessageId: number | null = null; // the message a web decision can collapse
     for (const s of sends) {
       const res = await post(s.method, s.payload);
       const carriesButtons = !!(s.payload as any).reply_markup;
+      const j = await res.json().catch(() => null);
       if (res.ok) {
-        if (carriesButtons) delivered = true;
+        if (carriesButtons) { delivered = true; buttonMessageId = j?.result?.message_id ?? buttonMessageId; }
       } else if (carriesButtons) {
         const p = s.payload as any;
         const fb = await post('sendMessage', { chat_id: telegramChatId, text: p.caption ?? p.text, reply_markup: p.reply_markup, disable_web_page_preview: true });
-        if (fb.ok) delivered = true;
+        const fj = await fb.json().catch(() => null);
+        if (fb.ok) { delivered = true; buttonMessageId = fj?.result?.message_id ?? buttonMessageId; }
       }
     }
     if (!delivered) return json({ error: 'telegram_failed' }, 502);
+    // Best-effort: remember which message holds the buttons so a web-page decision can
+    // collapse it. Never fails the request (column may not be migrated yet).
+    if (buttonMessageId != null) {
+      try { await supabase.from('purchase_requests').update({ telegram_message_id: buttonMessageId }).eq('id', data.id); } catch { /* ignore */ }
+    }
     return json({ id: data.id });
   }
 
