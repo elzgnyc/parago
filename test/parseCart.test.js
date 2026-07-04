@@ -131,6 +131,55 @@ describe('parseCartItems enriches items with EASY fields', () => {
   });
 });
 
+// Faithful to a real amazon.com cart line (2026-07): data-isselected drives
+// selection (the fancy checkbox does not track .checked), the title is nested twice
+// (a-truncate-full + a-truncate-cut) plus a hidden "Opens in a new tab", the product
+// image sits next to a display:none loading spinner under /images/G/, and each line
+// also carries Subscribe & Save + "This is a gift" checkboxes.
+describe('parseCart against real Amazon cart markup', () => {
+  const line = (asin, isselected, titleFull) => `
+    <div class="a-row sc-list-item" data-asin="${asin}" data-isselected="${isselected}" data-quantity="1">
+      <div class="sc-list-item-spinner" style="display:none">
+        <img src="https://m.media-amazon.com/images/G/01/ui/loadIndicators/loading-large._CB485945288_.gif">
+      </div>
+      <div class="a-checkbox a-checkbox-fancy sc-item-check-checkbox-selector sc-list-item-checkbox">
+        <label><input type="checkbox" name="" value="" aria-label="Select ${titleFull} for checkout"><i class="a-icon a-icon-checkbox"></i></label>
+      </div>
+      <a aria-hidden="true" class="a-link-normal sc-product-link" tabindex="-1" href="/gp/product/${asin}/">
+        <img src="https://m.media-amazon.com/images/I/81KyWvpx2cL._AC_AA180_.jpg" class="sc-product-image"
+             srcset="https://m.media-amazon.com/images/I/81KyWvpx2cL._AC_AA180_.jpg 1x, https://m.media-amazon.com/images/I/81KyWvpx2cL._AC_AA360_.jpg 2x">
+      </a>
+      <a class="a-link-normal sc-product-link sc-product-title aok-block" href="/gp/product/${asin}/">
+        <span class="a-size-base-plus a-color-base sc-product-title">
+          <h3 class="a-text-normal"><span class="a-truncate">
+            <span class="a-truncate-full a-offscreen">${titleFull}</span>
+            <span class="a-truncate-cut" aria-hidden="true">${titleFull.slice(0, 12)}…</span>
+          </span></h3>
+        </span>
+        <span class="aok-hidden">Opens in a new tab</span>
+      </a>
+      <span class="a-price"><span class="a-offscreen">$9.99</span></span>
+      <input type="checkbox" aria-label="Subscribe &amp; Save ${titleFull}" class="a-switch-input" name="sns-item-cart-desktop">
+      <label><input type="checkbox" name="" value=""><span class="a-label a-checkbox-label">This is a gift</span></label>
+    </div>`;
+
+  it('includes only data-isselected="1" lines and reads the clean single title', () => {
+    document.body.innerHTML = `<div id="sc-active-cart">
+      ${line('DESELECTED', '0', 'MAREE Batana Oil for Hair Growth 100 Percent Natural')}
+      ${line('KEPT', '1', 'Selected Product Full Title Here')}
+    </div>`;
+    const items = parseCartItems(document);
+    expect(items.map((i) => i.asin)).toEqual(['KEPT']);              // deselected line dropped
+    expect(items[0].title).toBe('Selected Product Full Title Here'); // clean: not doubled, no "Opens in a new tab"
+    expect(items[0].image).toBe('https://m.media-amazon.com/images/I/81KyWvpx2cL._AC_AA180_.jpg'); // not the /images/G/ spinner
+  });
+
+  it('the gift and Subscribe & Save checkboxes never cause a selected line to drop', () => {
+    document.body.innerHTML = `<div id="sc-active-cart">${line('KEPT', '1', 'Kept Item')}</div>`;
+    expect(parseCartItems(document).map((i) => i.title)).toEqual(['Kept Item']);
+  });
+});
+
 describe('parseCartItems captures rating + review count for the guardian', () => {
   it('reads the star rating and rating count from the cart line', () => {
     document.body.innerHTML = `

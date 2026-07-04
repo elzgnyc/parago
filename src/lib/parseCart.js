@@ -52,7 +52,13 @@ export function parseCartTotal(root = document) {
 }
 
 const ITEM_SELECTORS = '.sc-list-item[data-asin], [data-asin].sc-list-item, [data-name][data-asin]';
-const TITLE_SELECTORS = '.sc-product-title, .a-truncate-full, a.sc-product-link, .sc-product-link';
+// Title source priority. .a-truncate-full is the single clean, complete title; the
+// .sc-product-title anchor wraps it TWICE (a-truncate-full + a-truncate-cut) plus a
+// hidden "Opens in a new tab", and a separate image-only .sc-product-link anchor has
+// no text at all. A single querySelector with a grouped selector returns whichever
+// matches FIRST IN DOCUMENT ORDER (the empty image link), not the first selector — so
+// extractTitle() tries these in order and skips any that yield no text.
+const TITLE_SELECTOR_ORDER = ['.a-truncate-full', '.sc-product-title', '.a-truncate-cut', 'a.sc-product-link', '.sc-product-link'];
 const ITEM_PRICE_SELECTORS = '.sc-product-price, .a-price .a-offscreen';
 
 // A real Amazon product photo. Everything the cart serves for a product lives under
@@ -170,10 +176,19 @@ function selectionCheckbox(node) {
   return boxes.length === 1 ? boxes[0] : null;
 }
 
-// Is this control positively UNCHECKED? Native inputs expose `.checked`; ARIA
-// checkbox widgets expose aria-checked. Anything ambiguous counts as checked so an
+// Is this cart LINE positively deselected for checkout? Amazon marks the
+// authoritative per-line state on the item node itself (data-isselected="0"/"1"),
+// which is reliable across cart versions; its fancy checkbox does NOT track state in
+// the native `.checked` property, so trust the attribute first. Only when the
+// attribute is absent do we fall back to the selection checkbox (native .checked or
+// an ARIA widget's aria-checked). Anything ambiguous counts as selected, so an
 // unknown state never hides a purchased item.
-function isDeselected(box) {
+function isDeselected(node) {
+  if (!node || !node.getAttribute) return false;
+  const flag = node.getAttribute('data-isselected');
+  if (flag === '1' || flag === 'true') return false;
+  if (flag === '0' || flag === 'false') return true;
+  const box = selectionCheckbox(node);
   if (!box) return false;
   if (box.tagName === 'INPUT') return box.checked === false;
   return box.getAttribute('aria-checked') === 'false';
@@ -199,6 +214,19 @@ function cleanTitle(raw) {
     .trim();
 }
 
+// First non-empty cleaned title in priority order (see TITLE_SELECTOR_ORDER), then
+// data-name. Skipping empties is what stops the text-less product-image link from
+// winning and blanking the title.
+function extractTitle(node) {
+  for (const sel of TITLE_SELECTOR_ORDER) {
+    for (const el of node.querySelectorAll(sel)) {
+      const t = cleanTitle(el.textContent);
+      if (t) return t;
+    }
+  }
+  return cleanTitle(node.getAttribute('data-name'));
+}
+
 export function parseCartItems(root = document) {
   const searchRoot = activeScope(root);
 
@@ -211,12 +239,11 @@ export function parseCartItems(root = document) {
     // Send only what's actually checked out: skip a line ONLY when its selection
     // checkbox is positively unchecked. No checkbox / unknown markup → keep it, so we
     // never hide a real purchase from the guardian.
-    if (isDeselected(selectionCheckbox(node))) continue;
+    if (isDeselected(node)) continue;
     const asin = node.getAttribute('data-asin') || null;
     if (asin && seen.has(asin)) continue;
     if (asin) seen.add(asin);
-    const titleEl = node.querySelector(TITLE_SELECTORS);
-    const title = cleanTitle(titleEl ? titleEl.textContent : node.getAttribute('data-name'));
+    const title = extractTitle(node);
     if (!title) continue;
 
     // Per-item unit price (NOT the cart grand total); null when absent.
@@ -238,7 +265,7 @@ function hasDeselectedLine(root) {
   const scope = activeScope(root);
   for (const node of scope.querySelectorAll(ITEM_SELECTORS)) {
     if (node.closest(NON_PURCHASE_CONTAINERS)) continue;
-    if (isDeselected(selectionCheckbox(node))) return true;
+    if (isDeselected(node)) return true;
   }
   return false;
 }
