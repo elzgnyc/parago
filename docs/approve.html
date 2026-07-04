@@ -40,13 +40,14 @@
   ul.items{list-style:none;padding:0;margin:8px 0 4px}
   ul.items > li{display:flex;gap:14px;padding:16px 0;border-top:1px solid var(--line)}
   ul.items > li:first-child{border-top:0}
-  .num{flex:0 0 auto;width:22px;height:22px;border-radius:50%;background:var(--accent-tint);
-    color:var(--accent-strong);font-size:.72rem;font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:2px}
   .thumb{width:110px;height:110px;object-fit:contain;flex:0 0 auto;border-radius:var(--radius-sm);
     background:#fff;border:1px solid var(--line);padding:4px}
   @media (max-width:420px){.thumb{width:84px;height:84px}}
   .it-body{min-width:0;flex:1 1 auto}
-  .it-title{font-weight:600;line-height:1.32}
+  .it-title-row{display:flex;gap:8px;align-items:flex-start}
+  .num{flex:0 0 auto;width:20px;height:20px;border-radius:50%;background:var(--accent-tint);
+    color:var(--accent-strong);font-size:.7rem;font-weight:700;display:inline-flex;align-items:center;justify-content:center;margin-top:1px}
+  .it-title{flex:1 1 auto;min-width:0;font-weight:600;line-height:1.32}
   .it-title a{color:var(--ink);text-decoration:none}
   .it-title a:hover{color:var(--accent);text-decoration:underline}
   .it-facts{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center;margin-top:6px;font-size:.86rem;color:var(--ink-soft)}
@@ -82,9 +83,9 @@
   .spinner{width:30px;height:30px;margin:0 auto 12px;border:3px solid var(--line);
     border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
   @keyframes spin{to{transform:rotate(360deg)}}
-  .done-badge{font-family:"Stack Sans Notch",system-ui,sans-serif;font-size:1.6rem;font-weight:800}
-  .done-badge.ok{color:var(--accent-strong)}
-  .done-badge.no{color:var(--danger)}
+  .done-badge{font-family:"Stack Sans Notch",system-ui,sans-serif;font-size:1.7rem;font-weight:800;background:none}
+  .done-badge.is-approved{color:var(--accent-strong)}
+  .done-badge.is-rejected{color:var(--danger)}
   .retry{margin-top:10px;font:inherit;color:var(--accent);background:none;border:0;cursor:pointer;text-decoration:underline;padding:0}
 </style>
 </head>
@@ -149,7 +150,6 @@
   // title/url can't inject markup.
   function itemRow(it, i){
     var li = elt('li');
-    li.appendChild(elt('span', { cls:'num', text:String(i+1) }));
 
     var img = productImage(it && it.image);
     if (img){
@@ -159,9 +159,14 @@
     }
 
     var body = elt('div', { cls:'it-body' });
-    // Plain title, no Amazon link: the guardian's browser may not be logged in, and a
-    // login wall stalls the whole approval. Everything needed to decide is shown here.
-    body.appendChild(elt('div', { cls:'it-title', text: cleanTitle(it && it.title) }));
+    // Number sits next to the title (top-aligned), so it stays with the content even
+    // beside a tall thumbnail, and wrapped title lines never flow under it. Plain title,
+    // no Amazon link: the guardian's browser may not be logged in, and a login wall
+    // stalls the approval. Everything needed to decide is shown here.
+    var titleRow = elt('div', { cls:'it-title-row' });
+    titleRow.appendChild(elt('span', { cls:'num', text:String(i + 1) }));
+    titleRow.appendChild(elt('span', { cls:'it-title', text: cleanTitle(it && it.title) }));
+    body.appendChild(titleRow);
 
     var facts = elt('div', { cls:'it-facts' });
     if (typeof it.price === 'number'){
@@ -252,7 +257,7 @@
           // Show the verdict the SERVER recorded (res.status), not the button clicked.
           var st = res.status || verdict, word = st === 'approved' ? 'Approved' : 'Rejected';
           clear(app);
-          app.appendChild(elt('div', { cls:'done-badge ' + (st==='approved'?'ok':'no'), text:word }));
+          app.appendChild(elt('div', { cls:'done-badge ' + (st==='approved'?'is-approved':'is-rejected'), text:word }));
           app.appendChild(elt('p', { cls:'when', text:word + ' on ' + today() + '. You can close this page.' }));
         } else if (res && res.reason && REASONS[res.reason]){
           message(REASONS[res.reason]);
