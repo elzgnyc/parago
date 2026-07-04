@@ -102,6 +102,30 @@ function parseItemQty(node) {
   return Number.isInteger(n) && n > 0 ? n : 1;
 }
 
+// Star rating shown on the cart line, from Amazon's accessible "4.5 out of 5 stars"
+// text (a stable, locale-ish phrasing on the star widget). Captured at cart time so
+// the guardian sees the review summary on the approval page WITHOUT visiting Amazon
+// (which would force a login on their browser). null when absent.
+function parseItemRating(node) {
+  for (const el of node.querySelectorAll('.a-icon-alt, [aria-label]')) {
+    const t = el.getAttribute('aria-label') || el.textContent || '';
+    const m = t.match(/([0-5](?:\.\d+)?)\s*out of\s*5\s*stars/i);
+    if (m) { const n = parseFloat(m[1]); if (n >= 0 && n <= 5) return n; }
+  }
+  return null;
+}
+
+// Number of ratings, taken only from a product-reviews link's text/label (the most
+// reliable source; a bare number could be anything). null when absent.
+function parseItemReviewCount(node) {
+  const link = node.querySelector('a[href*="product-reviews" i], a[href*="customerreviews" i]');
+  if (link) {
+    const m = (link.getAttribute('aria-label') || link.textContent || '').replace(/,/g, '').match(/\d{1,7}/);
+    if (m) return parseInt(m[0], 10);
+  }
+  return null;
+}
+
 // The active cart (what's actually being purchased). Amazon's "Saved for later"
 // list uses the SAME .sc-list-item[data-asin] markup, so without scoping it would
 // count as being in the cart. Prefer parsing inside one of these; fall back to the
@@ -186,7 +210,9 @@ export function parseCartItems(root = document) {
     const qty = parseItemQty(node);
     const image = pickImageUrl(node);
     const url = asin ? ('https://www.amazon.com/dp/' + asin) : null;
-    items.push({ asin, title, price, qty, image, url });
+    const rating = parseItemRating(node);
+    const reviewCount = parseItemReviewCount(node);
+    items.push({ asin, title, price, qty, image, url, rating, reviewCount });
   }
   return items;
 }

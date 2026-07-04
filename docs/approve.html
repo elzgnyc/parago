@@ -54,12 +54,6 @@
   .it-facts a{color:var(--accent);text-decoration:none}
   .it-facts a:hover{text-decoration:underline}
   .it-asin{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.74rem}
-  .it-links{display:flex;flex-wrap:wrap;gap:8px 10px;margin-top:9px}
-  .chip{display:inline-flex;align-items:center;gap:5px;font-size:.8rem;font-weight:600;
-    text-decoration:none;color:var(--accent);padding:5px 10px;border:1px solid var(--line);
-    border-radius:999px;background:var(--surface)}
-  .chip:hover{border-color:var(--accent);background:var(--accent-tint)}
-  .chip svg{width:13px;height:13px}
   .actions{display:flex;gap:10px;margin-top:22px}
   button{font:inherit;font-weight:700;font-size:1rem;padding:13px 18px;border-radius:var(--radius-sm);
     border:1.5px solid transparent;cursor:pointer;flex:1 1 0;transition:background .12s,border-color .12s}
@@ -116,9 +110,6 @@
   function cleanTitle(t){
     return String(t == null ? 'Item' : t).replace(/opens in a new (tab|window)\b\.?/ig,'').replace(/\s+/g,' ').trim() || 'Item';
   }
-  function amazonDp(asin){ return asin ? 'https://www.amazon.com/dp/' + encodeURIComponent(asin) : null; }
-  function amazonReviews(asin){ return asin ? 'https://www.amazon.com/product-reviews/' + encodeURIComponent(asin) : null; }
-
   // rating 0..5; reviewCount optional.
   function starString(rating){
     var cr = Math.max(0, Math.min(5, rating));
@@ -131,15 +122,6 @@
     used:'This request was already decided.', decided:'This request was already decided.',
     expired:'This link has expired.',
   };
-
-  var svgCart = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.7 13.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L23 6H6"/></svg>';
-  var svgStar = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1L12 2z"/></svg>';
-  function chip(text, href, svg){
-    var a = elt('a', { cls:'chip', href:href });
-    var s = elt('span'); s.innerHTML = svg; // trusted static icon
-    a.appendChild(s.firstChild); a.appendChild(document.createTextNode(text));
-    return a;
-  }
 
   // One product row built from DOM nodes (no innerHTML for data) so a hostile
   // title/url can't inject markup.
@@ -155,12 +137,9 @@
     }
 
     var body = elt('div', { cls:'it-body' });
-    var dp = amazonDp(it && it.asin) || httpUrl(it && it.url);
-    var titleEl = elt('div', { cls:'it-title' });
-    var titleText = cleanTitle(it && it.title);
-    if (dp) titleEl.appendChild(elt('a', { text:titleText, href:dp }));
-    else titleEl.appendChild(document.createTextNode(titleText));
-    body.appendChild(titleEl);
+    // Plain title, no Amazon link: the guardian's browser may not be logged in, and a
+    // login wall stalls the whole approval. Everything needed to decide is shown here.
+    body.appendChild(elt('div', { cls:'it-title', text: cleanTitle(it && it.title) }));
 
     var facts = elt('div', { cls:'it-facts' });
     if (typeof it.price === 'number'){
@@ -172,28 +151,13 @@
       }
     }
     if (typeof it.rating === 'number' && isFinite(it.rating)){
-      var rev = amazonReviews(it && it.asin);
-      var starText = starString(it.rating) + ' ' + Math.max(0,Math.min(5,it.rating)).toFixed(1);
-      var countText = (typeof it.reviewCount === 'number' && isFinite(it.reviewCount))
-        ? Math.round(it.reviewCount).toLocaleString() + ' ratings' : null;
-      var starEl = elt('span', { cls:'stars', text:starText });
-      facts.appendChild(starEl);
-      if (countText){
-        if (rev) facts.appendChild(elt('a', { text:countText, href:rev }));
-        else facts.appendChild(elt('span', { text:countText }));
+      facts.appendChild(elt('span', { cls:'stars', text: starString(it.rating) + ' ' + Math.max(0,Math.min(5,it.rating)).toFixed(1) }));
+      if (typeof it.reviewCount === 'number' && isFinite(it.reviewCount)){
+        facts.appendChild(elt('span', { text: Math.round(it.reviewCount).toLocaleString() + ' ratings' }));
       }
     }
     if (it && it.asin) facts.appendChild(elt('span', { cls:'it-asin', text:'ASIN ' + it.asin }));
     if (facts.childNodes.length) body.appendChild(facts);
-
-    // Detailed info (reviews, date first available, rank, Q&A) lives on Amazon and
-    // opens the app on a phone — surface it as one tap rather than guess at fields
-    // the cart never exposes.
-    var links = elt('div', { cls:'it-links' });
-    if (dp) links.appendChild(chip('View on Amazon', dp, svgCart));
-    var rev2 = amazonReviews(it && it.asin);
-    if (rev2) links.appendChild(chip('Reviews & details', rev2, svgStar));
-    if (links.childNodes.length) body.appendChild(links);
 
     li.appendChild(body);
     return li;

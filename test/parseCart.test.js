@@ -131,6 +131,32 @@ describe('parseCartItems enriches items with EASY fields', () => {
   });
 });
 
+describe('parseCartItems captures rating + review count for the guardian', () => {
+  it('reads the star rating and rating count from the cart line', () => {
+    document.body.innerHTML = `
+      <div id="sc-active-cart">
+        <div class="sc-list-item" data-asin="RATED">
+          <div class="sc-product-title">Rated Item</div>
+          <i class="a-icon a-icon-star-small"><span class="a-icon-alt">4.6 out of 5 stars</span></i>
+          <a href="/product-reviews/RATED/">18,432 ratings</a>
+        </div>
+      </div>`;
+    const [it] = parseCartItems(document);
+    expect(it.rating).toBe(4.6);
+    expect(it.reviewCount).toBe(18432);
+  });
+
+  it('leaves rating/reviewCount null when the cart line has no stars', () => {
+    document.body.innerHTML = `
+      <div id="sc-active-cart">
+        <div class="sc-list-item" data-asin="NORATE"><div class="sc-product-title">No Rating</div></div>
+      </div>`;
+    const [it] = parseCartItems(document);
+    expect(it.rating).toBeNull();
+    expect(it.reviewCount).toBeNull();
+  });
+});
+
 describe('parseCartItems cleans the title', () => {
   it('strips Amazon\'s "Opens in a new tab" screen-reader text', () => {
     document.body.innerHTML = `
