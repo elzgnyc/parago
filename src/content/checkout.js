@@ -255,20 +255,30 @@ function stashCart(root = document) {
 // reflects the CURRENTLY selected items, for both the test send and a real checkout.
 function watchCartForSelection(root = document) {
   try {
-    if (typeof MutationObserver === 'undefined') return;
-    const scope = root.querySelector('#sc-active-cart, #activeCartViewForm, #sc-active-cart-content') || root.body || root;
-    if (!scope || !scope.addEventListener) return;
     let timer = null;
-    const restash = () => { clearTimeout(timer); timer = setTimeout(() => stashCart(root), 400); };
-    new MutationObserver(restash).observe(scope, {
-      subtree: true, childList: true, attributes: true, attributeFilter: ['data-isselected'],
-    });
-    // Belt-and-suspenders: also re-capture just after a click on a checkbox/label, in
-    // case a cart variant drives selection without flipping data-isselected in place.
-    scope.addEventListener('click', (e) => {
-      const t = e.target;
-      if (t && t.closest && t.closest('input[type="checkbox"], label, [class*="checkbox" i]')) restash();
-    }, true);
+    const restash = () => { clearTimeout(timer); timer = setTimeout(() => stashCart(root), 350); };
+    // 1) Fire the instant Amazon flips a line's selection attribute. Observe a STABLE
+    //    ancestor (body), not #sc-active-cart, since Amazon re-renders the cart subtree
+    //    on toggle and an observer bound to the replaced node would go deaf.
+    const target = root.body || root.documentElement;
+    if (typeof MutationObserver !== 'undefined' && target) {
+      new MutationObserver(restash).observe(target, { subtree: true, attributes: true, attributeFilter: ['data-isselected'] });
+    }
+    // 2) Backup for cart variants that don't toggle data-isselected in place: re-capture
+    //    shortly after a click on a checkbox/label (Amazon updates after an AJAX round-trip).
+    const clickHost = (root.addEventListener ? root : (root.body || null));
+    if (clickHost && clickHost.addEventListener) {
+      clickHost.addEventListener('click', (e) => {
+        const t = e.target;
+        if (t && t.closest && t.closest('input[type="checkbox"], label, [class*="checkbox" i]')) setTimeout(restash, 700);
+      }, true);
+    }
+    // 3) Safety net: while the cart tab is visible, re-capture every few seconds, so the
+    //    stored snapshot the Options "Send a test" reads can never lag the live selection,
+    //    however Amazon updates the DOM. parseCart is a cheap DOM read.
+    if (typeof setInterval !== 'undefined') {
+      setInterval(() => { if (typeof document === 'undefined' || document.visibilityState !== 'hidden') restash(); }, 3000);
+    }
   } catch (e) { /* no-op */ }
 }
 async function bestKnownPurchase(root = document) {
