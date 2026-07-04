@@ -173,7 +173,7 @@ export async function engage(settings, parsed) {
     req = pickPendingRequest(pending, parsed.total);
     if (!req) {
       const enrichedItems = await enrichItems(parsed.items);
-      const id = await relay.submitRequest({ total: parsed.total, items: enrichedItems });
+      const id = await relay.submitRequest({ total: parsed.total, items: enrichedItems, breakdown: parsed.breakdown });
       req = await relay.getRequest(id);
     }
   } catch (e) {
@@ -378,7 +378,7 @@ async function onPlaceOrderPress(ev) {
     const outstanding = await getOutstanding();
     if (!outstanding.some((o) => totalsMatch(o.total, total))) {
       const enriched = await enrichItems(items);
-      const id = await relay.submitRequest({ total, items: enriched });
+      const id = await relay.submitRequest({ total, items: enriched, breakdown: parsed.breakdown });
       await saveOutstanding([...outstanding, { id, total, createdAt: Date.now() }]);
     }
   } catch (e) {

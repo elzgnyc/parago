@@ -23,7 +23,7 @@ Deno.serve(async (req) => {
   const {
     total = null, items = [], deliveryMethod = 'email',
     guardianEmail = null, guardianName = null, telegramLinkCode = null,
-    githubUsername = null,
+    githubUsername = null, breakdown = null,
   } = body ?? {};
 
   const supabase = createClient(
@@ -73,6 +73,12 @@ Deno.serve(async (req) => {
     .select('id')
     .single();
   if (error) return json({ error: 'insert_failed', detail: error.message }, 500);
+
+  // Attach the order-summary breakdown separately + best-effort: a failure here (e.g. the
+  // column not migrated yet) must never fail the request or leave an orphan pending row.
+  if (Array.isArray(breakdown) && breakdown.length) {
+    try { await supabase.from('purchase_requests').update({ breakdown }).eq('id', data.id); } catch { /* ignore */ }
+  }
 
   // The approval link points at the static page (GitHub Pages), which renders the
   // purchase and calls the decision function. Used by email and by Telegram's

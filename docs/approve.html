@@ -41,6 +41,15 @@
   .total .lbl{color:var(--ink-soft);font-size:.85rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
   .total .amt{font-family:"Stack Sans Notch",system-ui,sans-serif;font-weight:800;font-size:1.5rem;margin-left:auto;color:var(--accent-strong)}
   .count{color:var(--ink-soft);font-size:.85rem;margin:10px 2px 2px}
+  .breakdown{background:var(--accent-tint);border-radius:var(--radius-sm);padding:12px 16px;margin:0 0 4px}
+  .bd-row{display:flex;justify-content:space-between;gap:12px;font-size:.9rem;padding:3px 0;color:var(--ink)}
+  .bd-label{color:var(--ink-soft)}
+  .bd-amt{font-variant-numeric:tabular-nums;white-space:nowrap}
+  .bd-total{margin-top:6px;padding-top:9px;border-top:1px solid var(--line)}
+  .bd-total .bd-label{color:var(--accent-strong);font-weight:700}
+  .bd-total .bd-amt{font-family:"Stack Sans Notch",system-ui,sans-serif;font-weight:800;font-size:1.35rem;color:var(--accent-strong)}
+  .approving{color:var(--ink-soft);font-size:.86rem;margin:8px 2px 2px}
+  .approving-amt{color:var(--ink);font-weight:700}
   ul.items{list-style:none;padding:0;margin:8px 0 4px}
   ul.items > li{display:flex;gap:14px;padding:16px 0;border-top:1px solid var(--line)}
   ul.items > li:first-child{border-top:0}
@@ -338,12 +347,34 @@
     app.appendChild(elt('p', { cls:'when', text: today() + ' · tick items to keep, or change a quantity' }));
 
     var items = Array.isArray(data.items) ? data.items : [];
-    var total = elt('div', { cls:'total' });
-    total.appendChild(elt('span', { cls:'lbl', text:'Total' }));
-    var amt = elt('span', { cls:'amt', text:'$' + money(data.total) }); amt.id = 'approvedAmt';
-    total.appendChild(amt);
-    app.appendChild(total);
-    var cnt = elt('p', { cls:'count' }); cnt.id = 'approvedCount'; app.appendChild(cnt);
+
+    // Full order-cost breakdown (Items, Shipping, Tax, fees, Order total) when captured
+    // at checkout; otherwise a single Total. Discounts are stored negative.
+    var bd = Array.isArray(data.breakdown) ? data.breakdown : null;
+    if (bd && bd.length){
+      var bdEl = elt('div', { cls:'breakdown' });
+      bd.forEach(function(line){
+        var neg = Number(line.amount) < 0;
+        var r = elt('div', { cls: 'bd-row' + (line.total ? ' bd-total' : '') });
+        r.appendChild(elt('span', { cls:'bd-label', text: String(line.label) }));
+        r.appendChild(elt('span', { cls:'bd-amt', text: (neg ? '-$' : '$') + money(Math.abs(Number(line.amount))) }));
+        bdEl.appendChild(r);
+      });
+      app.appendChild(bdEl);
+    } else {
+      var total = elt('div', { cls:'total' });
+      total.appendChild(elt('span', { cls:'lbl', text:'Total' }));
+      total.appendChild(elt('span', { cls:'amt', text:'$' + money(data.total) }));
+      app.appendChild(total);
+    }
+
+    // The guardian's current selection subtotal, updated live as they keep/drop items.
+    var appr = elt('p', { cls:'approving' });
+    appr.appendChild(document.createTextNode('Approving '));
+    var amtS = elt('span', { cls:'approving-amt' }); amtS.id = 'approvedAmt'; appr.appendChild(amtS);
+    appr.appendChild(document.createTextNode(' in '));
+    var cntS = elt('span'); cntS.id = 'approvedCount'; appr.appendChild(cntS);
+    app.appendChild(appr);
 
     var ul = elt('ul', { cls:'items' });
     items.forEach(function(it, i){ ul.appendChild(itemRow(it || {}, i)); });

@@ -109,5 +109,6 @@ Deno.serve(async (req) => {
     total: row.total,
     guardianName: row.guardian_name ?? null,
     items: Array.isArray(row.items) ? row.items : [],
+    breakdown: Array.isArray(row.breakdown) ? row.breakdown : null,
   });
 });

@@ -1,7 +1,52 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { parseCart, parseCartItems, parseCartTotal, parseDeliveryExpiry } from '../src/lib/parseCart.js';
+import { parseCart, parseCartItems, parseCartTotal, parseDeliveryExpiry, parseOrderBreakdown } from '../src/lib/parseCart.js';
 
 afterEach(() => { document.body.innerHTML = ''; });
+
+describe('parseOrderBreakdown', () => {
+  const row = (label, amount, bold) => `
+    <li><span class="a-list-item ${bold ? 'a-text-bold' : ''}"><div class="order-summary-grid">
+      <div class="order-summary-line-term"><span><span class="break-word">${label}</span></span></div>
+      <div class="order-summary-line-definition"><span class="aok-nowrap a-nowrap"><span data-shimmer-target="ordertotals-amount">${amount}</span></span></div>
+    </div></span></li>`;
+
+  it('captures Items / Shipping / Tax / Order total from the real checkout markup', () => {
+    document.body.innerHTML = `<ul id="subtotals-marketplace-table">
+      ${row('Items:', '$21.15')}
+      ${row('Shipping &amp; handling:', '$0.00')}
+      ${row('Estimated tax to be collected:', '$1.88')}
+      ${row('Order total:', '$23.63', true)}
+    </ul>`;
+    expect(parseOrderBreakdown(document)).toEqual([
+      { label: 'Items', amount: 21.15, total: false },
+      { label: 'Shipping & handling', amount: 0, total: false },
+      { label: 'Estimated tax to be collected', amount: 1.88, total: false },
+      { label: 'Order total', amount: 23.63, total: true },
+    ]);
+  });
+
+  it('stores a promotion/discount as a negative amount', () => {
+    document.body.innerHTML = `<ul id="subtotals-marketplace-table">
+      ${row('Items:', '$50.00')}
+      ${row('Promotion applied:', '-$5.00')}
+      ${row('Order total:', '$45.00', true)}
+    </ul>`;
+    const b = parseOrderBreakdown(document);
+    expect(b.find((x) => /promotion/i.test(x.label)).amount).toBe(-5);
+  });
+
+  it('skips the nested regulatory-fee popover rows and returns null off-checkout', () => {
+    document.body.innerHTML = `<ul id="subtotals-marketplace-table">
+      ${row('Estimated Regulatory Fees:', '$0.60')}
+      <div class="a-popover-preload"><ul>${row('Bottle Deposit Fee', '$0.60')}</ul></div>
+      ${row('Order total:', '$0.60', true)}
+    </ul>`;
+    const b = parseOrderBreakdown(document);
+    expect(b.map((x) => x.label)).toEqual(['Estimated Regulatory Fees', 'Order total']); // no "Bottle Deposit Fee"
+    document.body.innerHTML = '<div>no summary here</div>';
+    expect(parseOrderBreakdown(document)).toBeNull();
+  });
+});
 
 describe('delivery capture', () => {
   it('captures the delivery window, dropping the "$25 of qualifying items" tail', () => {

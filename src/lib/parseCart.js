@@ -331,6 +331,39 @@ function sumItemPrices(items) {
   return Math.round(sum * 100) / 100; // guard against float drift (7.26, not 7.2600001)
 }
 
+// The order-summary breakdown from the CHECKOUT page (#subtotals-marketplace-table):
+// Items subtotal, Shipping, Tax, fees, promotions/discounts, and Order total — so the
+// guardian sees the REAL cost, not just the item subtotal. Each line is a grid of a
+// .order-summary-line-term label + a .order-summary-line-definition amount
+// ([data-shimmer-target="ordertotals-amount"]). Skips the nested regulatory-fee popover.
+// Discounts/promotions (shown with a leading "-") are stored negative. null on the cart
+// page (the summary only exists at checkout) or when absent. Exported for testing.
+export function parseOrderBreakdown(root = document) {
+  const table = root.querySelector('#subtotals-marketplace-table, #subtotals');
+  if (!table) return null;
+  const out = [];
+  const seen = new Set();
+  for (const grid of table.querySelectorAll('.order-summary-grid')) {
+    if (grid.closest('.a-popover-preload')) continue; // hidden fee-detail popover, not a real line
+    const termEl = grid.querySelector('.order-summary-line-term');
+    const defEl = grid.querySelector('.order-summary-line-definition');
+    if (!termEl || !defEl) continue;
+    const labelEl = termEl.querySelector('.break-word') || termEl.querySelector('a') || termEl;
+    const label = (labelEl.textContent || '').replace(/\s+/g, ' ').replace(/:\s*$/, '').trim();
+    const amtEl = defEl.querySelector('[data-shimmer-target="ordertotals-amount"], .a-offscreen') || defEl;
+    const amtText = amtEl.textContent || '';
+    let amount = parseCurrency(amtText);
+    if (amount == null || !label || label.length > 48) continue;
+    if (/-\s*\$?\s*\d/.test(amtText) || /promotion|discount|saving|coupon/i.test(label)) amount = -Math.abs(amount);
+    const key = label.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ label, amount, total: /order total|grand total/i.test(label) });
+    if (out.length >= 12) break;
+  }
+  return out.length ? out : null;
+}
+
 export function parseCart(root = document) {
   const items = parseCartItems(root);
   let total = parseCartTotal(root);
@@ -342,5 +375,6 @@ export function parseCart(root = document) {
     const selectedSum = sumItemPrices(items);
     if (selectedSum != null) total = selectedSum;
   }
-  return { total, items };
+  const breakdown = parseOrderBreakdown(root);
+  return { total, items, breakdown };
 }
