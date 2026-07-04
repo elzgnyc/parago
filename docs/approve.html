@@ -49,6 +49,12 @@
   @media (max-width:420px){.thumb{width:84px;height:84px}}
   .it-body{min-width:0;flex:1 1 auto}
   .it-title-row{display:flex;gap:8px;align-items:flex-start}
+  .sel-check{flex:0 0 auto;width:18px;height:18px;margin-top:2px;accent-color:var(--accent);cursor:pointer}
+  .qty-input{width:52px;padding:3px 6px;border:1.5px solid var(--line);border-radius:6px;
+    background:var(--surface);color:var(--ink);font:inherit;font-size:.86rem;text-align:center}
+  .qty-x{color:var(--ink-soft)}
+  li.excluded{opacity:.42}
+  li.excluded .it-title{text-decoration:line-through}
   .num{flex:0 0 auto;width:20px;height:20px;border-radius:50%;background:var(--accent-tint);
     color:var(--accent-strong);font-size:.7rem;font-weight:700;display:inline-flex;align-items:center;justify-content:center;margin-top:1px}
   .it-title{flex:1 1 auto;min-width:0;font-weight:600;line-height:1.32}
@@ -168,24 +174,37 @@
     }
 
     var body = elt('div', { cls:'it-body' });
-    // Number sits next to the title (top-aligned), so it stays with the content even
-    // beside a tall thumbnail, and wrapped title lines never flow under it. Plain title,
-    // no Amazon link: the guardian's browser may not be logged in, and a login wall
-    // stalls the approval. Everything needed to decide is shown here.
+    // A checkbox to keep/drop the item, then the number and title. The guardian edits the
+    // cart here: uncheck to exclude, or change the quantity below.
     var titleRow = elt('div', { cls:'it-title-row' });
+    var check = elt('input'); check.type = 'checkbox'; check.className = 'sel-check';
+    check.checked = true; check.setAttribute('aria-label', 'Include this item');
+    titleRow.appendChild(check);
     titleRow.appendChild(elt('span', { cls:'num', text:String(i + 1) }));
     titleRow.appendChild(elt('span', { cls:'it-title', text: cleanTitle(it && it.title) }));
     body.appendChild(titleRow);
 
+    var origQty = (isFinite(Number(it.qty)) && Number(it.qty) > 0) ? Math.round(Number(it.qty)) : 1;
+    var qtyInput = null;
     var facts = elt('div', { cls:'it-facts' });
     if (typeof it.price === 'number'){
-      var line = it.price * (isFinite(Number(it.qty)) && Number(it.qty)>0 ? Number(it.qty) : 1);
       facts.appendChild(elt('span', { cls:'price', text:'$' + money(it.price) }));
-      if (isFinite(Number(it.qty)) && Number(it.qty) > 1){
-        facts.appendChild(elt('span', { text:'× ' + Math.round(Number(it.qty)) }));
-        facts.appendChild(elt('span', { text:'= $' + money(line) }));
-      }
+      facts.appendChild(elt('span', { cls:'qty-x', text:'×' }));
+      qtyInput = elt('input'); qtyInput.type = 'number'; qtyInput.min = '0'; qtyInput.step = '1';
+      qtyInput.className = 'qty-input'; qtyInput.value = String(origQty);
+      qtyInput.setAttribute('aria-label', 'Quantity');
+      facts.appendChild(qtyInput);
     }
+
+    // Register for the live Approved total + the decision payload, and wire the controls.
+    var sel = { asin: it && it.asin, price: (typeof it.price === 'number') ? it.price : null, origQty: origQty, checkbox: check, qtyInput: qtyInput };
+    GUARDIAN_SELECTION.push(sel);
+    check.addEventListener('change', function(){
+      li.className = check.checked ? '' : 'excluded';
+      if (qtyInput) qtyInput.disabled = !check.checked;
+      recomputeTotal();
+    });
+    if (qtyInput) qtyInput.addEventListener('input', recomputeTotal);
     if (typeof it.rating === 'number' && isFinite(it.rating)){
       facts.appendChild(elt('span', { cls:'stars', text: starString(it.rating) + ' ' + Math.max(0,Math.min(5,it.rating)).toFixed(1) }));
       if (typeof it.reviewCount === 'number' && isFinite(it.reviewCount)){
@@ -260,6 +279,36 @@
   }
   setInterval(tickDeadlines, 1000);
 
+  // The guardian can uncheck items or change quantities — "the cart is good except
+  // these". Each item row registers here; recomputeTotal keeps the Approved total live.
+  var GUARDIAN_SELECTION = [];
+  function itemQty(s){
+    var q = s.qtyInput ? parseInt(s.qtyInput.value, 10) : s.origQty;
+    return (isFinite(q) && q > 0) ? Math.round(q) : 0;
+  }
+  function recomputeTotal(){
+    var sum = 0, count = 0;
+    for (var i = 0; i < GUARDIAN_SELECTION.length; i++){
+      var s = GUARDIAN_SELECTION[i];
+      var included = !s.checkbox || s.checkbox.checked;
+      var q = itemQty(s);
+      if (included && q > 0){
+        if (typeof s.price === 'number') sum += s.price * q;
+        count++;
+      }
+    }
+    var amt = document.getElementById('approvedAmt');
+    if (amt) amt.textContent = '$' + money(sum);
+    var cnt = document.getElementById('approvedCount');
+    if (cnt) cnt.textContent = count + (count === 1 ? ' item' : ' items');
+  }
+  // The included items + chosen quantities, for the decision payload.
+  function guardianSelection(){
+    return GUARDIAN_SELECTION
+      .filter(function(s){ return (!s.checkbox || s.checkbox.checked) && itemQty(s) > 0; })
+      .map(function(s){ return { asin: s.asin || null, qty: itemQty(s) }; });
+  }
+
   function centered(nodes){
     clear(app);
     var d = elt('div', { cls:'center' });
@@ -272,20 +321,23 @@
 
   function renderApproval(data){
     clear(app);
+    GUARDIAN_SELECTION = [];
     app.appendChild(elt('h1', { text:'Approve this purchase?' }));
-    app.appendChild(elt('p', { cls:'when', text:today() }));
+    app.appendChild(elt('p', { cls:'when', text: today() + ' · tick items to keep, or change a quantity' }));
 
     var items = Array.isArray(data.items) ? data.items : [];
     var total = elt('div', { cls:'total' });
-    total.appendChild(elt('span', { cls:'lbl', text:'Total' }));
-    total.appendChild(elt('span', { cls:'amt', text:'$' + money(data.total) }));
+    total.appendChild(elt('span', { cls:'lbl', text:'Approved' }));
+    var amt = elt('span', { cls:'amt', text:'$' + money(data.total) }); amt.id = 'approvedAmt';
+    total.appendChild(amt);
     app.appendChild(total);
-    app.appendChild(elt('p', { cls:'count', text:items.length + (items.length === 1 ? ' item' : ' items') }));
+    var cnt = elt('p', { cls:'count' }); cnt.id = 'approvedCount'; app.appendChild(cnt);
 
     var ul = elt('ul', { cls:'items' });
     items.forEach(function(it, i){ ul.appendChild(itemRow(it || {}, i)); });
     app.appendChild(ul);
-    tickDeadlines(); // paint countdowns immediately, then the interval keeps them live
+    recomputeTotal();  // reflect the full cart, then update as the guardian edits
+    tickDeadlines();   // paint countdowns immediately, then the interval keeps them live
 
     var bar = elt('div', { cls:'actions' });
     var approve = elt('button', { cls:'ok', text:'Approve' });
@@ -293,9 +345,17 @@
     var note = elt('p', { cls:'note' });
     function decide(verdict){
       approve.disabled = reject.disabled = true; note.textContent = '';
+      // On approve, send the guardian's edited selection (kept items + quantities). The
+      // server records what was actually approved; empty selection = nothing kept.
+      var payload = { token:token, verdict:verdict };
+      if (verdict === 'approved'){
+        var sel = guardianSelection();
+        if (!sel.length){ approve.disabled = reject.disabled = false; note.textContent = 'Keep at least one item, or press Reject.'; return; }
+        payload.selection = sel;
+      }
       fetch(DECISION_URL, {
         method:'POST', headers:{ 'Content-Type':'application/json' },
-        body: JSON.stringify({ token:token, verdict:verdict }),
+        body: JSON.stringify(payload),
       }).then(function(r){ return r.json(); }).then(function(res){
         if (res && res.ok){
           // Show the verdict the SERVER recorded (res.status), not the button clicked.
