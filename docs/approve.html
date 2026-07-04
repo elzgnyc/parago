@@ -3,6 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<!-- Send no referrer, so Amazon's image CDN doesn't hotlink-block the product photos
+     when this page is opened off-Amazon (esp. mobile browsers, which send a referrer
+     where desktop may not). -->
+<meta name="referrer" content="no-referrer">
 <title>Parago — Approve purchase</title>
 <style>
   @font-face{
@@ -156,7 +160,9 @@
 
     var img = productImage(it && it.image);
     if (img){
-      var im = elt('img', { cls:'thumb' }); im.src = img; im.alt = '';
+      var im = elt('img', { cls:'thumb' }); im.alt = '';
+      im.referrerPolicy = 'no-referrer';         // set before src: don't let Amazon hotlink-block it
+      im.src = img;
       im.onerror = function(){ im.remove(); };   // broken URL → drop it, never a spinner
       li.appendChild(im);
     }
