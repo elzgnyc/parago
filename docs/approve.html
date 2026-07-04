@@ -38,8 +38,8 @@
   .total .amt{font-family:"Stack Sans Notch",system-ui,sans-serif;font-weight:800;font-size:1.5rem;margin-left:auto;color:var(--accent-strong)}
   .count{color:var(--ink-soft);font-size:.85rem;margin:10px 2px 2px}
   ul.items{list-style:none;padding:0;margin:8px 0 4px}
-  ul.items li{display:flex;gap:14px;padding:16px 0;border-top:1px solid var(--line)}
-  ul.items li:first-child{border-top:0}
+  ul.items > li{display:flex;gap:14px;padding:16px 0;border-top:1px solid var(--line)}
+  ul.items > li:first-child{border-top:0}
   .num{flex:0 0 auto;width:22px;height:22px;border-radius:50%;background:var(--accent-tint);
     color:var(--accent-strong);font-size:.72rem;font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:2px}
   .thumb{width:76px;height:76px;object-fit:contain;flex:0 0 auto;border-radius:var(--radius-sm);
@@ -54,6 +54,20 @@
   .it-facts a{color:var(--accent);text-decoration:none}
   .it-facts a:hover{text-decoration:underline}
   .it-asin{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.74rem}
+  .applink{display:inline-block;margin-top:10px;font-size:.82rem;font-weight:700;text-decoration:none;
+    color:var(--accent);padding:6px 12px;border:1.5px solid var(--accent);border-radius:999px}
+  .applink:hover{background:var(--accent);color:#fff}
+  .more{margin-top:10px}
+  .more summary{cursor:pointer;font-size:.83rem;font-weight:600;color:var(--ink-soft);
+    list-style:none;display:inline-flex;align-items:center;gap:5px;user-select:none}
+  .more summary::before{content:"▸";font-size:.7rem;transition:transform .15s}
+  .more[open] summary::before{transform:rotate(90deg)}
+  .more summary::-webkit-details-marker{display:none}
+  .dl{display:flex;gap:8px;margin:8px 0 0;font-size:.84rem;line-height:1.4}
+  .dl-k{flex:0 0 84px;color:var(--ink-soft)}
+  .dl-v{flex:1 1 auto}
+  ul.bullets{margin:10px 0 2px;padding-left:18px;font-size:.84rem;color:var(--ink);line-height:1.45}
+  ul.bullets li{margin:3px 0}
   .actions{display:flex;gap:10px;margin-top:22px}
   button{font:inherit;font-weight:700;font-size:1rem;padding:13px 18px;border-radius:var(--radius-sm);
     border:1.5px solid transparent;cursor:pointer;flex:1 1 0;transition:background .12s,border-color .12s}
@@ -110,6 +124,13 @@
   function cleanTitle(t){
     return String(t == null ? 'Item' : t).replace(/opens in a new (tab|window)\b\.?/ig,'').replace(/\s+/g,' ').trim() || 'Item';
   }
+  function detailLine(label, value){
+    var row = elt('div', { cls:'dl' });
+    row.appendChild(elt('span', { cls:'dl-k', text:label }));
+    row.appendChild(elt('span', { cls:'dl-v', text:String(value) }));
+    return row;
+  }
+
   // rating 0..5; reviewCount optional.
   function starString(rating){
     var cr = Math.max(0, Math.min(5, rating));
@@ -158,6 +179,33 @@
     }
     if (it && it.asin) facts.appendChild(elt('span', { cls:'it-asin', text:'ASIN ' + it.asin }));
     if (facts.childNodes.length) body.appendChild(facts);
+
+    // Primary path: open the Amazon APP (already signed in on the phone) to the full
+    // product — reviews, Q&A, everything — with no browser login wall. Custom scheme
+    // opens the app where installed; a no-op elsewhere, which is why the inline
+    // Details below is the fallback.
+    if (it && it.asin){
+      var appLink = elt('a', { cls:'applink', text:'Open in Amazon app' });
+      appLink.href = 'com.amazon.mobile.shopping.web://www.amazon.com/dp/' + encodeURIComponent(it.asin);
+      body.appendChild(appLink);
+    }
+
+    // Fallback: the richer product detail captured at cart time, shown inline so the
+    // guardian never has to leave this page.
+    var d = it && it.details;
+    if (d && (d.brand || d.dateFirstAvailable || d.rank || (d.bullets && d.bullets.length))){
+      var det = elt('details', { cls:'more' });
+      det.appendChild(elt('summary', { text:'Details' }));
+      if (d.brand) det.appendChild(detailLine('Brand', d.brand));
+      if (d.dateFirstAvailable) det.appendChild(detailLine('First listed', d.dateFirstAvailable));
+      if (d.rank) det.appendChild(detailLine('Rank', d.rank));
+      if (Array.isArray(d.bullets) && d.bullets.length){
+        var ul = elt('ul', { cls:'bullets' });
+        d.bullets.forEach(function(b){ ul.appendChild(elt('li', { text:String(b) })); });
+        det.appendChild(ul);
+      }
+      body.appendChild(det);
+    }
 
     li.appendChild(body);
     return li;

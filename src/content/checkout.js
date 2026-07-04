@@ -1,6 +1,7 @@
 import { getSettings } from '../settings/storage.js';
 import { setLang } from '../i18n/i18n.js';
 import { parseCart } from '../lib/parseCart.js';
+import { productDetailFields } from '../lib/parseProduct.js';
 import { shouldRequireApproval } from '../lib/guardianTrigger.js';
 import { isApprovedForTotal, recordApproval } from '../lib/approval.js';
 import { MockRelay } from '../relay/mockRelay.js';
@@ -53,7 +54,15 @@ export async function enrichItems(items, { timeoutMs = 2000 } = {}) {
     const timeout = new Promise((resolve) => setTimeout(() => resolve(null), timeoutMs));
     const meta = await Promise.race([bgProductMeta(item.asin), timeout]);
     if (!meta) return item; // timed out: leave unchanged
-    return { ...item, rating: meta.rating ?? null, reviewCount: meta.reviewCount ?? null };
+    // Prefer the product page's values, but keep the cart-line rating when the
+    // background fetch came back empty (e.g. a robot-check page) rather than nulling it.
+    const details = productDetailFields(meta);
+    return {
+      ...item,
+      rating: meta.rating ?? item.rating ?? null,
+      reviewCount: meta.reviewCount ?? item.reviewCount ?? null,
+      ...(details ? { details } : {}),
+    };
   }));
 }
 
