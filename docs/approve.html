@@ -84,6 +84,9 @@
   .it-facts a:hover{text-decoration:underline}
   .it-asin{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.74rem}
   .it-delivery{margin-top:7px;font-size:.84rem;color:var(--ink)}
+  .dv-when{font-weight:600}
+  .dv-cost{margin-left:8px;font-weight:700;color:var(--red)}
+  .dv-cost.free{color:var(--green)}
   .deadline{margin-top:3px;font-size:.8rem;font-weight:700;color:var(--accent-strong)}
   .deadline.expired{color:var(--danger)}
   .applink{display:inline-block;margin-top:10px;font-size:.82rem;font-weight:700;text-decoration:none;
@@ -176,6 +179,18 @@
     return s;
   }
 
+  // Split the delivery line into the WHEN (date/window) and its cost, so we can lead
+  // with the time and then say Free or the price. "FREE delivery Overnight 4 AM - 8 AM"
+  // -> { when:'Overnight 4 AM - 8 AM', cost:'Free' }; a paid one keeps its "$X".
+  function formatDelivery(s){
+    s = cleanDelivery(s);
+    if (!s) return null;
+    var free = /\bFREE\b/i.test(s);
+    var costM = s.match(/\$[\d.,]+/);
+    var when = s.replace(/\bFREE\b/ig,'').replace(/\bdelivery\b/ig,'').replace(/\$[\d.,]+/g,'').replace(/\s{2,}/g,' ').replace(/^[\s.,-]+|[\s.,-]+$/g,'').trim();
+    return { when: when, cost: free ? 'Free' : (costM ? costM[0] : '') };
+  }
+
   function detailLine(label, value){
     var row = elt('div', { cls:'dl' });
     row.appendChild(elt('span', { cls:'dl-k', text:label }));
@@ -259,8 +274,17 @@
     // Delivery window captured from the cart, plus a live countdown to the order
     // cutoff so the guardian knows if the slot is still available (see tickDeadlines).
     if (it && typeof it.delivery === 'string' && it.delivery){
-      var dtext = cleanDelivery(it.delivery);
-      if (dtext) body.appendChild(elt('div', { cls:'it-delivery', text: dtext }));
+      var dv = formatDelivery(it.delivery);
+      if (dv && dv.when){
+        var drow = elt('div', { cls:'it-delivery' });
+        drow.appendChild(elt('span', { cls:'dv-when', text: dv.when }));
+        if (dv.cost){
+          var free = dv.cost === 'Free';
+          drow.appendChild(elt('span', { cls: 'dv-cost' + (free ? ' free' : ''), text: dv.cost }));
+          drow.title = free ? 'Free delivery' : 'Delivery costs ' + dv.cost;
+        }
+        body.appendChild(drow);
+      }
     }
     if (it && typeof it.deliveryExpiry === 'number' && isFinite(it.deliveryExpiry)){
       var dl = elt('div', { cls:'deadline' });
