@@ -47,8 +47,8 @@ function setSeg(key, v) {
 function getSeg(key) { return segState[key]; }
 function buildSegs() {
   initSeg('deliveryMethod', [
-    { v: 'email', label: t('delivery_email'), icon: ICON_EMAIL },
     { v: 'telegram', label: t('delivery_telegram'), icon: ICON_TG },
+    { v: 'email', label: t('delivery_email'), icon: ICON_EMAIL },
   ]);
   initSeg('guardianMode', [
     { v: 'off', label: t('guardian_off') },
