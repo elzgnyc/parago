@@ -26,6 +26,37 @@
   font-size: 17px;
 }
 
+/* Dark theme: options.js stamps data-theme="dark" on the root when the user toggles
+   the moon/sun switch. Only the palette variables change; every surface reads them. */
+:root[data-theme="dark"] {
+  --bg: #14181d;
+  --surface: #1e262e;
+  --ink: #f0ece4;
+  --ink-soft: #9aa0a6;
+  --line: #313b45;
+  --accent: #3d9be0;
+  --accent-strong: #6bb4ea;
+  --accent-tint: #16324a;
+  --danger: #e5776e;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+:root[data-theme="dark"] input.switch { background: #3a4550; }
+
+/* Moon/sun theme toggle in the header. */
+.theme-toggle {
+  flex: 0 0 auto; width: 38px; height: 38px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1.5px solid var(--line); border-radius: 999px;
+  background: var(--surface); color: var(--ink-soft); cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.theme-toggle:hover { color: var(--accent); border-color: var(--accent); }
+.theme-toggle .icon-sun { display: none; }
+.theme-toggle .icon-moon { display: block; }
+:root[data-theme="dark"] .theme-toggle .icon-moon { display: none; }
+:root[data-theme="dark"] .theme-toggle .icon-sun { display: block; }
+.brand-controls { display: flex; align-items: center; gap: 12px; }
+
 * { box-sizing: border-box; }
 
 body {
@@ -109,7 +140,7 @@ input[type="url"],
 input[type="email"] {
   width: 100%;
   font: inherit; font-size: 1.02rem;
-  color: var(--ink); background: #fff;
+  color: var(--ink); background: var(--surface);
   padding: 11px 12px;
   border: 1.5px solid var(--line);
   border-radius: var(--radius-sm);
@@ -241,7 +272,7 @@ input.switch:focus-visible { box-shadow: 0 0 0 3px var(--accent-tint); }
 /* Pending approvals */
 #pending { margin-top: 2px; }
 .pending-item {
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--line); border-radius: var(--radius-sm);
   padding: 14px; margin-bottom: 12px;
 }

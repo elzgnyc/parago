@@ -77,9 +77,14 @@ async function togglePower() {
   renderPower(await getSettings());
 }
 
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme === 'dark' ? 'dark' : 'light');
+}
+
 async function main() {
   const settings = await getSettings();
   setLang(settings.lang);
+  applyTheme(settings.theme);
   document.documentElement.lang = settings.lang;
   for (const el of document.querySelectorAll('[data-i18n]')) {
     el.textContent = t(el.getAttribute('data-i18n'));
@@ -88,7 +93,7 @@ async function main() {
   power.addEventListener('change', togglePower);
   renderPower(settings);
   // Reflect changes made elsewhere (e.g. the Options page) while the popup is open.
-  onSettingsChanged(() => getSettings().then(renderPower));
+  onSettingsChanged(() => getSettings().then((s) => { renderPower(s); applyTheme(s.theme); }));
   document.getElementById('openSettings').addEventListener('click', () => {
     chrome.runtime.openOptionsPage();
   });

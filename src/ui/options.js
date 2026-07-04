@@ -69,6 +69,11 @@ function buildSegs() {
   }
 }
 
+// ── Theme (light / dark) ─────────────────────────────────────────────────────────
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme === 'dark' ? 'dark' : 'light');
+}
+
 // ── Detail level (Simple / Advanced) ─────────────────────────────────────────────
 function applyAdvancedVisibility(advanced) {
   for (const el of document.querySelectorAll('[data-adv]')) el.hidden = !advanced;
@@ -302,6 +307,7 @@ function load(settings) {
   for (const k of boolSegs) setSeg(k, settings[k]);
   setLang(settings.lang);
   applyI18n();
+  applyTheme(settings.theme);
   applyAdvancedVisibility(settings.advancedMode);
   applyMethodVisibility(settings.deliveryMethod || 'email');
   applyGuardianModeVisibility(settings.guardianMode);
@@ -440,6 +446,13 @@ async function main() {
       applyAdvancedVisibility(advanced);
     });
   }
+
+  const themeBtn = document.getElementById('themeToggle');
+  if (themeBtn) themeBtn.addEventListener('click', async () => {
+    const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    applyTheme(next);
+    await setSettings({ theme: next });
+  });
 
   const tgc = document.getElementById('tgConnected');
   if (tgc) tgc.addEventListener('click', () => {
