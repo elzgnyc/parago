@@ -37,6 +37,7 @@
   }
   function httpUrl(u) { return (typeof u === 'string' && /^https?:\/\//i.test(u)) ? u : null; }
   function money(n) { return (typeof n === 'number' && isFinite(n)) ? n.toFixed(2) : '—'; }
+  function today() { return new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }); }
 
   // Mirror of the server/email star rendering. rating 0..5; reviewCount optional.
   function stars(rating, reviewCount) {
@@ -97,6 +98,7 @@
 
     var totalP = elt('p'); totalP.appendChild(elt('strong', { text: 'Total: $' + money(data.total) }));
     app.appendChild(totalP);
+    app.appendChild(elt('p', { cls: 'muted', text: today() }));
 
     var ul = elt('ul', { cls: 'items' });
     (Array.isArray(data.items) ? data.items : []).forEach(function (it) { ul.appendChild(itemRow(it || {})); });
@@ -117,7 +119,8 @@
           // clicked: on a race the server may have stored the other surface's
           // decision, and we must not claim an outcome it did not save.
           var st = res.status || verdict;
-          message(st === 'approved' ? 'Approved ✓' : 'Rejected', 'You can close this page.');
+          var word = st === 'approved' ? 'Approved' : 'Rejected';
+          message(word, word + ' on ' + today() + '. You can close this page.');
         } else if (res && res.reason && REASONS[res.reason]) {
           message(REASONS[res.reason]);
         } else {

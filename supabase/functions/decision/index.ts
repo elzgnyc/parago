@@ -9,6 +9,25 @@ import { corsHeaders, preflight } from '../_shared/cors.js';
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders(), 'Content-Type': 'application/json' } });
 
+// Confirm a web-page decision back to the guardian's Telegram chat, so a decision
+// made on approve.html is reflected in Telegram too (not just the browser). Best
+// effort: never let a Telegram hiccup fail the decision that was already recorded.
+async function notifyTelegram(chatId: number, verdict: string, total: unknown) {
+  const botToken = Deno.env.get('TELEGRAM_BOT_TOKEN');
+  if (!botToken || !chatId) return;
+  const when = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  const amount = typeof total === 'number' && isFinite(total) ? ` ($${total.toFixed(2)})` : '';
+  const text = verdict === 'approved'
+    ? `Purchase approved${amount} on ${when}. Parago will complete the checkout.`
+    : `Purchase rejected${amount} on ${when}.`;
+  try {
+    await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId, text, disable_web_page_preview: true }),
+    });
+  } catch { /* best effort */ }
+}
+
 Deno.serve(async (req) => {
   const pf = preflight(req); if (pf) return pf;
 
@@ -46,6 +65,9 @@ Deno.serve(async (req) => {
       const { data: fresh } = await supabase.from('purchase_requests').select('status').eq('token', token).maybeSingle();
       return json({ ok: true, status: (fresh && fresh.status) || 'decided', alreadyDecided: true });
     }
+    // This call is the one that recorded the verdict → confirm it back to Telegram
+    // (only the web page reaches this function; a Telegram tap goes to the webhook).
+    if (row.telegram_chat_id) await notifyTelegram(row.telegram_chat_id, verdict, row.total);
     return json({ ok: true, status: verdict });
   }
 
