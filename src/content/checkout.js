@@ -1,4 +1,4 @@
-import { getSettings } from '../settings/storage.js';
+import { getSettings, resolveTimezone } from '../settings/storage.js';
 import { setLang } from '../i18n/i18n.js';
 import { parseCart, parseCheckoutInfo } from '../lib/parseCart.js';
 import { productDetailFields } from '../lib/parseProduct.js';
@@ -88,6 +88,7 @@ function buildRelay(settings) {
       deliveryMethod: settings.deliveryMethod || 'email',
       telegramLinkCode: settings.telegramLinkCode || null,
       githubUsername: settings.githubUsername || null,
+      timezone: resolveTimezone(settings),
     });
   }
   return new MockRelay();

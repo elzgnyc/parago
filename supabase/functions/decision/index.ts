@@ -18,8 +18,11 @@ async function notifyTelegram(row: any, verdict: string, total: unknown, edited:
   const botToken = Deno.env.get('TELEGRAM_BOT_TOKEN');
   const chatId = row?.telegram_chat_id;
   if (!botToken || !chatId) return;
-  // Date AND time (functions run in UTC, so label the zone); flag guardian edits.
-  const when = new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' });
+  // Date AND time in the shopper's chosen zone (row.timezone), else UTC; flag edits.
+  const tzOpts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' };
+  let when: string;
+  try { when = new Date().toLocaleString('en-US', { ...tzOpts, timeZone: (typeof row?.timezone === 'string' && row.timezone) ? row.timezone : 'UTC' }); }
+  catch (e) { when = new Date().toLocaleString('en-US', { ...tzOpts, timeZone: 'UTC' }); }
   const amount = typeof total === 'number' && isFinite(total) ? ` · $${total.toFixed(2)}` : '';
   const n = Array.isArray(row.items) ? row.items.length : 0;
   const items = n ? ` · ${n} item${n > 1 ? 's' : ''}` : '';
@@ -131,5 +134,6 @@ Deno.serve(async (req) => {
     breakdown: Array.isArray(row.breakdown) ? row.breakdown : null,
     shipTo: row.ship_to ?? null,
     payment: row.payment ?? null,
+    timezone: row.timezone ?? null,
   });
 });

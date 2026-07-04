@@ -23,14 +23,20 @@ async function tg(method: string, payload: unknown) {
 
 // Compact one-line summary that replaces the full item list once a decision is made,
 // so the approval message is not left as a wall of text.
+// Now, formatted in the shopper's chosen IANA zone (row.timezone), else UTC. The zone
+// abbreviation is shown so the guardian knows which clock it is.
+function fmtWhen(tz: unknown): string {
+  const opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' };
+  if (typeof tz === 'string' && tz) { try { return new Date().toLocaleString('en-US', { ...opts, timeZone: tz }); } catch (e) { /* bad zone */ } }
+  return new Date().toLocaleString('en-US', { ...opts, timeZone: 'UTC' });
+}
+
 function decisionSummary(verdict: string, row: any): string {
   const total = (typeof row?.total === 'number' && isFinite(row.total)) ? ` · $${row.total.toFixed(2)}` : '';
   const n = Array.isArray(row?.items) ? row.items.length : 0;
   const items = n ? ` · ${n} item${n > 1 ? 's' : ''}` : '';
-  // Date AND time of the decision (functions run in UTC, so label the zone).
-  const when = new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' });
   const modified = row?.guardian_edited ? ' (modified)' : '';
-  return `${verdict === 'approved' ? 'Approved' : 'Rejected'}${total}${items} · ${when}${modified}`;
+  return `${verdict === 'approved' ? 'Approved' : 'Rejected'}${total}${items} · ${fmtWhen(row?.timezone)}${modified}`;
 }
 
 // Edit the approval message down to that summary, replacing the item list + Approve/

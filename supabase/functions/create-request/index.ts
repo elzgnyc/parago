@@ -23,7 +23,7 @@ Deno.serve(async (req) => {
   const {
     total = null, items = [], deliveryMethod = 'email',
     guardianEmail = null, guardianName = null, telegramLinkCode = null,
-    githubUsername = null, breakdown = null, shipTo = null, payment = null,
+    githubUsername = null, breakdown = null, shipTo = null, payment = null, timezone = null,
   } = body ?? {};
 
   const supabase = createClient(
@@ -81,6 +81,7 @@ Deno.serve(async (req) => {
   if (Array.isArray(breakdown) && breakdown.length) extra.breakdown = breakdown;
   if (typeof shipTo === 'string' && shipTo) extra.ship_to = shipTo.slice(0, 80);
   if (typeof payment === 'string' && payment) extra.payment = payment.slice(0, 40);
+  if (typeof timezone === 'string' && /^[A-Za-z0-9_+\-/]{1,64}$/.test(timezone)) extra.timezone = timezone;
   if (Object.keys(extra).length) {
     try { await supabase.from('purchase_requests').update(extra).eq('id', data.id); } catch { /* ignore */ }
   }

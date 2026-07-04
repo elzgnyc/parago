@@ -1,4 +1,4 @@
-import { getSettings, setSettings, DEFAULTS } from '../settings/storage.js';
+import { getSettings, setSettings, DEFAULTS, resolveTimezone } from '../settings/storage.js';
 import { setLang, t } from '../i18n/i18n.js';
 import { CONFIG } from '../config.js';
 import { shouldUseSupabase, resolveFunctionsBaseUrl } from '../relay/selectRelay.js';
@@ -7,8 +7,27 @@ import { SupabaseRelay } from '../relay/supabaseRelay.js';
 // Inputs/selects driven by a generic change -> save listener.
 const fields = [
   'lang', 'minStars', 'minRatings',
-  'guardianLimit', 'guardianEmail', 'functionsBaseUrl', 'githubUsername',
+  'guardianLimit', 'guardianEmail', 'functionsBaseUrl', 'githubUsername', 'timezone',
 ];
+
+// Fill the time-zone select with the browser's IANA zones (falls back to a short list
+// on older browsers). The "Automatic" option (value '') shows the detected device zone.
+function populateTimezones() {
+  const sel = document.getElementById('timezone');
+  if (!sel) return;
+  let zones = [];
+  try { zones = (Intl.supportedValuesOf && Intl.supportedValuesOf('timeZone')) || []; } catch (e) { zones = []; }
+  if (!zones.length) zones = ['UTC', 'America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles', 'Europe/London', 'Europe/Paris', 'Asia/Tokyo', 'Asia/Kolkata', 'Australia/Sydney'];
+  let detected = 'UTC';
+  try { detected = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; } catch (e) { /* keep UTC */ }
+  const auto = sel.querySelector('option[value=""]');
+  if (auto) auto.textContent = `${t('tz_auto')} (${detected})`;
+  for (const z of zones) {
+    const o = document.createElement('option');
+    o.value = z; o.textContent = z;
+    sel.appendChild(o);
+  }
+}
 // Settings driven by segmented controls instead of inputs/selects.
 const boolSegs = ['hideSponsored', 'flagLowRating', 'flagFewRatings', 'flagNonPrime', 'hoverReveal', 'devMode'];
 const segKeys = ['deliveryMethod', 'guardianMode', 'mode', ...boolSegs];
@@ -294,6 +313,7 @@ function updateGithubPreview() {
 
 function load(settings) {
   document.getElementById('lang').value = settings.lang;
+  document.getElementById('timezone').value = settings.timezone || '';
   document.getElementById('minStars').value = settings.minStars;
   document.getElementById('minRatings').value = settings.minRatings;
   document.getElementById('guardianLimit').value = settings.guardianLimit;
@@ -320,6 +340,7 @@ function load(settings) {
 function readForm() {
   const out = {
     lang: document.getElementById('lang').value,
+    timezone: document.getElementById('timezone').value,
     minStars: toFinite(document.getElementById('minStars').value, DEFAULTS.minStars, 0, 5),
     minRatings: Math.round(toFinite(document.getElementById('minRatings').value, DEFAULTS.minRatings, 0, Infinity)),
     guardianLimit: Math.round(toFinite(document.getElementById('guardianLimit').value, DEFAULTS.guardianLimit, 0, Infinity)),
@@ -414,6 +435,7 @@ async function sendTest() {
     deliveryMethod: method,
     telegramLinkCode: settings.telegramLinkCode || null,
     githubUsername: settings.githubUsername || null,
+    timezone: resolveTimezone(settings),
   });
   status.textContent = t('test_sending');
   try {
@@ -429,6 +451,7 @@ async function main() {
   setLang(settings.lang);
   buildStars();
   buildSegs();
+  populateTimezones();
   load(settings);
   for (const id of fields) {
     document.getElementById(id).addEventListener('change', save);

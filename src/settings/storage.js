@@ -20,6 +20,7 @@ export const DEFAULTS = {
   githubUsername: '',   // GitHub user hosting approve.html; the approval link becomes https://<user>.github.io/parago/approve.html. Blank = server default. Advanced.
   advancedMode: false,  // Options page detail level: false = Simple (hides advanced/developer controls)
   theme: 'light',       // UI theme: 'light' | 'dark' (moon/sun toggle in Options)
+  timezone: '',         // IANA zone for timestamps shown to the guardian; '' = the device's zone (auto)
   lang: 'en',           // 'en' | 'vi'
   devMode: false,       // show the on-page Developer test panel (no real purchases)
 };
@@ -43,6 +44,13 @@ export function setSettings(patch) {
       resolve();
     });
   });
+}
+
+// The IANA time zone to stamp timestamps in: the user's choice, else this device's zone.
+export function resolveTimezone(settings) {
+  const tz = settings && typeof settings.timezone === 'string' && settings.timezone.trim();
+  if (tz) return tz;
+  try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; } catch (e) { return 'UTC'; }
 }
 
 export function onSettingsChanged(cb) {

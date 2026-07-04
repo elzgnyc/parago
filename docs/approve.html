@@ -152,11 +152,16 @@
   function httpUrl(u){ return (typeof u === 'string' && /^https?:\/\//i.test(u)) ? u : null; }
   function money(n){ return (typeof n === 'number' && isFinite(n)) ? n.toFixed(2) : '—'; }
   // Precise date + time (the guardian may get several orders the same day, so the
-  // minute matters). Uses the request's created time when available, else now.
+  // minute matters). Uses the request's created time when available, else now, and the
+  // shopper's chosen time zone (APP_TZ) so it matches the Telegram summary; else the
+  // viewer's local zone.
+  var APP_TZ = null;
   function whenFull(iso){
     var d = iso ? new Date(iso) : new Date();
     if (isNaN(d.getTime())) d = new Date();
-    return d.toLocaleString('en-US',{year:'numeric',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
+    var opts = {year:'numeric',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'};
+    if (APP_TZ){ try { return d.toLocaleString('en-US', Object.assign({timeZone:APP_TZ,timeZoneName:'short'}, opts)); } catch(e){} }
+    return d.toLocaleString('en-US', opts);
   }
   function amazonApp(asin){ return asin ? 'com.amazon.mobile.shopping.web://www.amazon.com/dp/' + encodeURIComponent(asin) : null; }
 
@@ -387,6 +392,7 @@
   function renderApproval(data){
     clear(app);
     GUARDIAN_SELECTION = [];
+    APP_TZ = (typeof data.timezone === 'string' && data.timezone) ? data.timezone : null;
     app.appendChild(elt('p', { cls:'when', text: whenFull(data.createdAt) }));
 
     var items = Array.isArray(data.items) ? data.items : [];
