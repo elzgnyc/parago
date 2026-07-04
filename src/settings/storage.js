@@ -3,7 +3,7 @@ export const DEFAULTS = {
   minRatings: 5,        // flag items with this many ratings or fewer
   mode: 'grey',         // 'grey' | 'hide' | 'off'
   preferredMode: 'grey',// remembers grey-vs-hide so the popup power toggle can restore it after 'off'
-  hideSponsored: true,
+  hideSponsored: false,
   flagLowRating: true,
   flagFewRatings: true,
   flagNonPrime: false,  // opt-in: flag items not eligible for Prime
@@ -11,13 +11,13 @@ export const DEFAULTS = {
   guardianMode: 'off',  // 'off' | 'always' | 'over_limit'
   guardianLimit: 50,    // approval required above this total when over_limit
   guardianName: '',     // label for whoever approves
-  deliveryMethod: 'email', // how the approver is reached: 'email' | 'telegram'. Per-method config below persists independently, so switching never clears the other.
+  deliveryMethod: 'telegram', // how the approver is reached: 'email' | 'telegram'. Per-method config below persists independently, so switching never clears the other.
   guardianEmail: '',    // email delivery: where approval emails are sent
   telegramLinkCode: '', // telegram delivery: opaque code this install generated; the guardian binds it by tapping the t.me deep link
   telegramLinked: false,// telegram delivery: true once the guardian completes linking
   telegramName: '',     // display name of the connected Telegram chat (shown in Options), filled at link time
   functionsBaseUrl: '', // Supabase Edge Functions URL for email approval; set in Options (not code). Blank = local popup approval. Not a secret (it is the public project URL).
-  approveUrl: '',       // where the guardian's approve/reject link points (hosted approve.html); blank = server default. Advanced.
+  githubUsername: '',   // GitHub user hosting approve.html; the approval link becomes https://<user>.github.io/parago/approve.html. Blank = server default. Advanced.
   advancedMode: false,  // Options page detail level: false = Simple (hides advanced/developer controls)
   lang: 'en',           // 'en' | 'vi'
   devMode: false,       // show the on-page Developer test panel (no real purchases)

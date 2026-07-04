@@ -32,8 +32,14 @@
     }
   ],
   "options_page": "src/ui/options.html",
+  "icons": {
+    "16": "src/ui/parago.png",
+    "48": "src/ui/parago.png",
+    "128": "src/ui/parago.png"
+  },
   "action": {
     "default_popup": "src/ui/popup.html",
-    "default_title": "Parago"
+    "default_title": "Parago",
+    "default_icon": "src/ui/parago.png"
   }
 }

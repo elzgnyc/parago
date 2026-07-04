@@ -54,6 +54,8 @@ body.options { padding: 40px 28px 56px; }
 /* Brand header */
 .brand { display: flex; align-items: center; gap: 13px; margin-bottom: 22px; }
 .options .brand { justify-content: space-between; }
+.brand-name { display: flex; align-items: center; gap: 12px; }
+.brand-logo { width: 40px; height: 40px; border-radius: 10px; object-fit: contain; }
 .brand .logo {
   flex: 0 0 auto;
   width: 42px; height: 42px;
@@ -92,7 +94,9 @@ body.options { padding: 40px 28px 56px; }
 
 select,
 input[type="number"],
-input[type="text"] {
+input[type="text"],
+input[type="url"],
+input[type="email"] {
   width: 100%;
   font: inherit; font-size: 1.02rem;
   color: var(--ink); background: #fff;
@@ -100,6 +104,13 @@ input[type="text"] {
   border: 1.5px solid var(--line);
   border-radius: var(--radius-sm);
   transition: border-color 0.15s, box-shadow 0.15s;
+}
+/* Long values (backend URL, github username) in a narrow card: smaller mono so
+   more of the string is visible without overflowing the column. */
+.wide-input {
+  font-size: 0.82rem;
+  font-family: ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
+  letter-spacing: -0.01em;
 }
 select:focus,
 input:focus {
@@ -184,11 +195,7 @@ input.switch:focus-visible { box-shadow: 0 0 0 3px var(--accent-tint); }
 /* Popup header: logo + name on the left, a compact protection switch + settings gear
    on the right. The switch controls the search filter on/off, nothing else. */
 .pop-head { display: flex; align-items: center; gap: 10px; margin: -2px 0 16px; }
-.pop-mark {
-  flex: 0 0 auto; width: 26px; height: 26px;
-  display: grid; place-items: center;
-  color: #fff; background: var(--accent); border-radius: 8px;
-}
+.pop-mark { flex: 0 0 auto; width: 26px; height: 26px; border-radius: 7px; object-fit: contain; }
 .pop-name {
   flex: 1 1 auto; margin-right: auto;
   font-family: var(--font-display); font-weight: 600; font-size: 1.15rem;
@@ -263,6 +270,9 @@ input.switch:focus-visible { box-shadow: 0 0 0 3px var(--accent-tint); }
 .seg-btn:focus-visible { outline: 3px solid var(--accent-tint); outline-offset: 2px; }
 .seg-ic { display: inline-grid; place-items: center; }
 .seg-onoff .seg-btn { min-width: 48px; justify-content: center; padding: 6px 4px; }
+/* Three-option segment (approval mode, flagged-items action): fills the column. */
+.seg-triple { display: flex; width: 100%; }
+.seg-triple .seg-btn { flex: 1 1 0; min-width: 0; justify-content: center; padding: 7px 6px; }
 
 /* Dot next to a setting that has been changed from its default. */
 label.is-changed::after, .field-label.is-changed::after {

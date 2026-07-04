@@ -8,7 +8,10 @@
 <body class="options">
   <main class="container">
     <header class="brand">
-      <h1>Parago</h1>
+      <div class="brand-name">
+        <img class="brand-logo" src="parago.png" alt="" />
+        <h1>Parago</h1>
+      </div>
       <div class="ui-mode" role="group" aria-label="Settings detail level">
         <button type="button" class="ui-mode-btn" data-mode="simple" data-i18n="mode_simple">Simple</button>
         <button type="button" class="ui-mode-btn" data-mode="advanced" data-i18n="mode_advanced">Advanced</button>
@@ -20,12 +23,8 @@
         <h2 class="card-title" data-i18n="section_approval">Purchase approval</h2>
 
         <div class="field">
-          <label for="guardianMode" data-i18n="label_guardian_mode">Ask someone to approve purchases</label>
-          <select id="guardianMode">
-            <option value="off" data-i18n="guardian_off">Off</option>
-            <option value="always" data-i18n="guardian_always">For every order</option>
-            <option value="over_limit" data-i18n="guardian_over_limit">Only over a spending limit</option>
-          </select>
+          <span class="field-label" data-i18n="label_guardian_mode">Ask someone to approve purchases</span>
+          <div class="seg seg-triple" id="seg-guardianMode" role="group" aria-label="Approval mode"></div>
         </div>
 
         <div class="field" id="guardianLimitField">
@@ -79,15 +78,15 @@
 
         <div class="field" data-adv>
           <label for="functionsBaseUrl" data-i18n="label_functions_url">Email backend URL</label>
-          <input type="url" id="functionsBaseUrl" placeholder="https://YOUR-REF.functions.supabase.co" />
+          <input type="url" id="functionsBaseUrl" class="wide-input" placeholder="https://YOUR-REF.functions.supabase.co" />
         </div>
         <p class="field-hint" data-adv data-i18n="hint_functions_url">Needed to send approval emails. Paste your Supabase project's Edge Functions URL. The Brevo key and service-role key stay on the server.</p>
 
         <div class="field" data-adv>
-          <label for="approveUrl" data-i18n="label_approve_url">Approval page URL</label>
-          <input type="url" id="approveUrl" placeholder="https://YOUR-NAME.github.io/parago/approve.html" />
+          <label for="githubUsername" data-i18n="label_github_user">GitHub username (approval page)</label>
+          <input type="text" id="githubUsername" class="wide-input" placeholder="your-github-username" spellcheck="false" autocapitalize="off" autocorrect="off" />
         </div>
-        <p class="field-hint" data-adv data-i18n="hint_approve_url">Where the guardian's approve/reject link points (the hosted approve.html). Leave blank for the default.</p>
+        <p class="field-hint" data-adv data-i18n="hint_github_user">The approval page opens at https://USERNAME.github.io/parago/approve.html. Enable GitHub Pages on your fork (main branch) so the link works. Blank uses the server default.</p>
       </section>
 
       <section class="card">
@@ -104,24 +103,20 @@
           <label for="minRatings" data-i18n="label_min_ratings">Hide items with this many ratings or fewer</label>
           <input type="number" id="minRatings" min="0" step="1" />
         </div>
+        <div class="field switch-row">
+          <span class="field-label" data-i18n="filter_low">Flag low-rated items</span>
+          <div class="seg seg-onoff" id="seg-flagLowRating"></div>
+        </div>
       </section>
 
       <section class="card">
         <h2 class="card-title" data-i18n="section_filtering">Search filtering</h2>
         <div class="field">
-          <label for="mode" data-i18n="label_mode">What to do with flagged items</label>
-          <select id="mode">
-            <option value="grey" data-i18n="mode_grey">Grey them out (recommended)</option>
-            <option value="hide" data-i18n="mode_hide">Hide them completely</option>
-            <option value="off" data-i18n="mode_off">Do nothing (off)</option>
-          </select>
+          <span class="field-label" data-i18n="label_mode">What to do with flagged items</span>
+          <div class="seg seg-triple" id="seg-mode" role="group" aria-label="Flagged items action"></div>
         </div>
 
         <p class="group-heading" data-i18n="filter_flag_heading">Flag items that are</p>
-        <div class="field switch-row">
-          <span class="field-label" data-i18n="filter_low">Low rated</span>
-          <div class="seg seg-onoff" id="seg-flagLowRating"></div>
-        </div>
         <div class="field switch-row">
           <span class="field-label" data-i18n="filter_sponsored">Sponsored</span>
           <div class="seg seg-onoff" id="seg-hideSponsored"></div>

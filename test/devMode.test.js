@@ -8,8 +8,8 @@ describe('developer mode', () => {
     expect(DEFAULTS.devMode).toBe(false);
   });
 
-  it('email is the default delivery method, with telegram config keys present but empty', () => {
-    expect(DEFAULTS.deliveryMethod).toBe('email');
+  it('telegram is the default delivery method, with telegram config keys present but empty', () => {
+    expect(DEFAULTS.deliveryMethod).toBe('telegram');
     expect(DEFAULTS.telegramLinkCode).toBe('');
     expect(DEFAULTS.telegramLinked).toBe(false);
   });

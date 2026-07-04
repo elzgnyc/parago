@@ -22,7 +22,8 @@ Deno.serve(async (req) => {
   try { body = await req.json(); } catch { return json({ error: 'bad_json' }, 400); }
   const {
     total = null, items = [], deliveryMethod = 'email',
-    guardianEmail = null, guardianName = null, telegramLinkCode = null, approveUrl = null,
+    guardianEmail = null, guardianName = null, telegramLinkCode = null,
+    githubUsername = null,
   } = body ?? {};
 
   const supabase = createClient(
@@ -75,12 +76,22 @@ Deno.serve(async (req) => {
 
   // The approval link points at the static page (GitHub Pages), which renders the
   // purchase and calls the decision function. Used by email and by Telegram's
-  // "See full details" button. Override via APPROVE_URL if the host changes.
-  // Where the guardian's approve/reject page is hosted. A caller-supplied approveUrl
-  // (from the extension's Advanced setting) wins, then the server env, then the
-  // default. Only accept an https URL so the emailed/messaged link is never downgraded.
-  const callerApprove = (typeof approveUrl === 'string' && /^https:\/\//i.test(approveUrl.trim())) ? approveUrl.trim() : null;
-  const approveBase = (callerApprove ?? Deno.env.get('APPROVE_URL') ?? 'https://nhuvtran.github.io/parago/approve.html').replace(/\/$/, '');
+  // "See full details" button.
+  //
+  // Resolution order: caller githubUsername -> APPROVE_URL secret -> baked default.
+  // The caller only supplies a GitHub *username*, never a full URL: we validate it
+  // against GitHub's username grammar and interpolate a fixed host+path, so the link
+  // can only ever be https://<user>.github.io/parago/approve.html. That bounds the
+  // classic phishing risk (a fully caller-controlled link on a public endpoint could
+  // point a trusted-sender email/message at an arbitrary attacker page) to a
+  // github.io/parago/approve.html page. If you don't want callers choosing the host,
+  // leave githubUsername unset in the extension and rely on APPROVE_URL.
+  const GH_USER_RE = /^[a-z\d](?:[a-z\d]|-(?=[a-z\d])){0,38}$/i; // GitHub username: alnum + single internal hyphens, <=39 chars
+  const ghUser = typeof githubUsername === 'string' && GH_USER_RE.test(githubUsername.trim())
+    ? githubUsername.trim() : null;
+  const approveBase = ghUser
+    ? `https://${ghUser}.github.io/parago/approve.html`
+    : (Deno.env.get('APPROVE_URL') ?? 'https://elzgnyc.github.io/parago/approve.html').replace(/\/$/, '');
   const link = `${approveBase}?token=${token}`;
 
   if (deliveryMethod === 'telegram') {

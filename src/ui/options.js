@@ -6,12 +6,12 @@ import { SupabaseRelay } from '../relay/supabaseRelay.js';
 
 // Inputs/selects driven by a generic change -> save listener.
 const fields = [
-  'lang', 'minStars', 'minRatings', 'mode',
-  'guardianMode', 'guardianLimit', 'guardianEmail', 'functionsBaseUrl', 'approveUrl',
+  'lang', 'minStars', 'minRatings',
+  'guardianLimit', 'guardianEmail', 'functionsBaseUrl', 'githubUsername',
 ];
-// Settings driven by segmented On/Off (or Email/Telegram) controls instead of inputs.
+// Settings driven by segmented controls instead of inputs/selects.
 const boolSegs = ['hideSponsored', 'flagLowRating', 'flagFewRatings', 'flagNonPrime', 'hoverReveal', 'devMode'];
-const segKeys = ['deliveryMethod', ...boolSegs];
+const segKeys = ['deliveryMethod', 'guardianMode', 'mode', ...boolSegs];
 
 const ICON_EMAIL = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>';
 const ICON_TG = '<svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M21.9 4.3 18.7 19.4c-.2 1-.9 1.3-1.7.8l-4.7-3.5-2.3 2.2c-.3.3-.5.5-1 .5l.3-4.9L18 6.1c.4-.3-.1-.5-.6-.2L7.2 12.3l-4.6-1.4c-1-.3-1-1 .2-1.5L20.6 2.7c.8-.3 1.6.2 1.3 1.6z"/></svg>';
@@ -49,6 +49,16 @@ function buildSegs() {
   initSeg('deliveryMethod', [
     { v: 'email', label: t('delivery_email'), icon: ICON_EMAIL },
     { v: 'telegram', label: t('delivery_telegram'), icon: ICON_TG },
+  ]);
+  initSeg('guardianMode', [
+    { v: 'off', label: t('guardian_off') },
+    { v: 'always', label: t('guardian_always_seg') },
+    { v: 'over_limit', label: t('guardian_over_seg') },
+  ]);
+  initSeg('mode', [
+    { v: 'grey', label: t('mode_grey_seg') },
+    { v: 'hide', label: t('mode_hide_seg') },
+    { v: 'off', label: t('mode_off_seg') },
   ]);
   for (const k of boolSegs) initSeg(k, [{ v: true, label: t('on') }, { v: false, label: t('off') }]);
 }
@@ -243,12 +253,12 @@ function markChanged() {
   const mark = (key, el) => {
     if (el) el.classList.toggle('is-changed', JSON.stringify(cur[key]) !== JSON.stringify(DEFAULTS[key]));
   };
-  for (const key of ['guardianMode', 'guardianLimit', 'mode', 'minStars', 'minRatings', 'guardianEmail', 'functionsBaseUrl', 'lang']) {
+  for (const key of ['guardianLimit', 'minStars', 'minRatings', 'guardianEmail', 'functionsBaseUrl', 'githubUsername', 'lang']) {
     const ctrl = document.getElementById(key);
     const field = ctrl && ctrl.closest('.field, .lang-row');
     mark(key, field && field.querySelector('label, .field-label'));
   }
-  for (const key of ['deliveryMethod', ...boolSegs]) {
+  for (const key of segKeys) {
     const host = document.getElementById('seg-' + key);
     const field = host && host.closest('.field');
     mark(key, field && field.querySelector('.field-label, label'));
@@ -265,13 +275,13 @@ function load(settings) {
   document.getElementById('lang').value = settings.lang;
   document.getElementById('minStars').value = settings.minStars;
   document.getElementById('minRatings').value = settings.minRatings;
-  document.getElementById('mode').value = settings.mode;
-  document.getElementById('guardianMode').value = settings.guardianMode;
   document.getElementById('guardianLimit').value = settings.guardianLimit;
   document.getElementById('guardianEmail').value = settings.guardianEmail;
   document.getElementById('functionsBaseUrl').value = settings.functionsBaseUrl || '';
-  document.getElementById('approveUrl').value = settings.approveUrl || '';
+  document.getElementById('githubUsername').value = settings.githubUsername || '';
   setSeg('deliveryMethod', settings.deliveryMethod || 'email');
+  setSeg('guardianMode', settings.guardianMode);
+  setSeg('mode', settings.mode);
   for (const k of boolSegs) setSeg(k, settings[k]);
   setLang(settings.lang);
   applyI18n();
@@ -289,13 +299,13 @@ function readForm() {
     lang: document.getElementById('lang').value,
     minStars: toFinite(document.getElementById('minStars').value, DEFAULTS.minStars, 0, 5),
     minRatings: Math.round(toFinite(document.getElementById('minRatings').value, DEFAULTS.minRatings, 0, Infinity)),
-    mode: document.getElementById('mode').value,
-    guardianMode: document.getElementById('guardianMode').value,
     guardianLimit: Math.round(toFinite(document.getElementById('guardianLimit').value, DEFAULTS.guardianLimit, 0, Infinity)),
     guardianEmail: document.getElementById('guardianEmail').value.trim(),
     functionsBaseUrl: document.getElementById('functionsBaseUrl').value.trim(),
-    approveUrl: document.getElementById('approveUrl').value.trim(),
+    githubUsername: document.getElementById('githubUsername').value.trim().replace(/^@/, ''),
     deliveryMethod: getSeg('deliveryMethod'),
+    guardianMode: getSeg('guardianMode'),
+    mode: getSeg('mode'),
   };
   for (const k of boolSegs) out[k] = getSeg(k);
   return out;
@@ -380,7 +390,7 @@ async function sendTest() {
     guardianName: settings.guardianName,
     deliveryMethod: method,
     telegramLinkCode: settings.telegramLinkCode || null,
-    approveUrl: settings.approveUrl || null,
+    githubUsername: settings.githubUsername || null,
   });
   status.textContent = t('test_sending');
   try {
