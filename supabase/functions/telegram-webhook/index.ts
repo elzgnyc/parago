@@ -27,8 +27,10 @@ function decisionSummary(verdict: string, row: any): string {
   const total = (typeof row?.total === 'number' && isFinite(row.total)) ? ` · $${row.total.toFixed(2)}` : '';
   const n = Array.isArray(row?.items) ? row.items.length : 0;
   const items = n ? ` · ${n} item${n > 1 ? 's' : ''}` : '';
-  const when = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-  return `${verdict === 'approved' ? 'Approved' : 'Rejected'}${total}${items} · ${when}`;
+  // Date AND time of the decision (functions run in UTC, so label the zone).
+  const when = new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' });
+  const modified = row?.guardian_edited ? ' (modified)' : '';
+  return `${verdict === 'approved' ? 'Approved' : 'Rejected'}${total}${items} · ${when}${modified}`;
 }
 
 // Edit the approval message down to that summary, replacing the item list + Approve/

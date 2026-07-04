@@ -32,10 +32,12 @@
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--ink);
     font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-    font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased;}
-  .wrap{max-width:40rem;margin:0 auto;padding:22px 16px 56px}
-  .brand{display:flex;align-items:center;justify-content:center;gap:9px;margin:4px 0 16px}
-  .brand img{width:30px;height:30px;object-fit:contain}
+    font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased;
+    overflow-x:hidden;} /* a long unbreakable string must never widen the page and shift centered content */
+  .wrap{max-width:40rem;margin:0 auto;padding:22px 16px 56px;width:100%}
+  .brand{display:flex;align-items:center;justify-content:center;gap:9px;margin:4px 0 16px;text-align:center;width:100%}
+  .brand img{width:30px;height:30px;object-fit:contain;flex:0 0 auto}
+  .it-title,.dv-when,.bd-label{overflow-wrap:anywhere;word-break:break-word}
   .brand .mark{font-family:"Stack Sans Notch",system-ui,sans-serif;font-weight:800;
     font-size:1.35rem;color:var(--navy);letter-spacing:.2px}
   .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
@@ -365,6 +367,12 @@
       .filter(function(s){ return (!s.checkbox || s.checkbox.checked) && itemQty(s) > 0; })
       .map(function(s){ return { asin: s.asin || null, qty: itemQty(s) }; });
   }
+  // Did the guardian change the cart (drop an item or change a quantity)?
+  function wasEdited(){
+    return GUARDIAN_SELECTION.some(function(s){
+      return (s.checkbox && !s.checkbox.checked) || itemQty(s) !== s.origQty;
+    });
+  }
 
   function centered(nodes){
     clear(app);
@@ -435,10 +443,12 @@
       // On approve, send the guardian's edited selection (kept items + quantities). The
       // server records what was actually approved; empty selection = nothing kept.
       var payload = { token:token, verdict:verdict };
+      var modified = false;
       if (verdict === 'approved'){
         var sel = guardianSelection();
         if (!sel.length){ approve.disabled = reject.disabled = false; note.textContent = 'Keep at least one item, or press Reject.'; return; }
         payload.selection = sel;
+        modified = wasEdited();
       }
       fetch(DECISION_URL, {
         method:'POST', headers:{ 'Content-Type':'application/json' },
@@ -447,9 +457,10 @@
         if (res && res.ok){
           // Show the verdict the SERVER recorded (res.status), not the button clicked.
           var st = res.status || verdict, word = st === 'approved' ? 'Approved' : 'Rejected';
+          var modTag = (st === 'approved' && modified) ? ' (modified)' : '';
           clear(app);
-          app.appendChild(elt('div', { cls:'done-badge ' + (st==='approved'?'is-approved':'is-rejected'), text:word }));
-          app.appendChild(elt('p', { cls:'when', text:word + ' ' + whenFull() + '. You can close this page.' }));
+          app.appendChild(elt('div', { cls:'done-badge ' + (st==='approved'?'is-approved':'is-rejected'), text: word + modTag }));
+          app.appendChild(elt('p', { cls:'when', text:word + modTag + ' ' + whenFull() + '. You can close this page.' }));
         } else if (res && res.reason && REASONS[res.reason]){
           message(REASONS[res.reason]);
         } else {

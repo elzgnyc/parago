@@ -14,15 +14,16 @@ const json = (body: unknown, status = 200) =>
 // + Undo the webhook uses, so it never lingers as a wall of text with live buttons. If
 // the message id wasn't stored (older request), fall back to a separate confirmation.
 // Best effort throughout — a Telegram hiccup must never fail an already-recorded decision.
-async function notifyTelegram(row: any, verdict: string, total: unknown) {
+async function notifyTelegram(row: any, verdict: string, total: unknown, edited: boolean) {
   const botToken = Deno.env.get('TELEGRAM_BOT_TOKEN');
   const chatId = row?.telegram_chat_id;
   if (!botToken || !chatId) return;
-  const when = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  // Date AND time (functions run in UTC, so label the zone); flag guardian edits.
+  const when = new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' });
   const amount = typeof total === 'number' && isFinite(total) ? ` · $${total.toFixed(2)}` : '';
   const n = Array.isArray(row.items) ? row.items.length : 0;
   const items = n ? ` · ${n} item${n > 1 ? 's' : ''}` : '';
-  const summary = `${verdict === 'approved' ? 'Approved' : 'Rejected'}${amount}${items} · ${when}`;
+  const summary = `${verdict === 'approved' ? 'Approved' : 'Rejected'}${amount}${items} · ${when}${edited ? ' (modified)' : ''}`;
   const reply_markup = { inline_keyboard: [[{ text: 'Undo', callback_data: 'u:' + row.token }]] };
   const post = (method: string, payload: unknown) => fetch(`https://api.telegram.org/bot${botToken}/${method}`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
@@ -71,6 +72,7 @@ Deno.serve(async (req) => {
     // store the approved items + recomputed total (leaving the row untouched when the
     // selection is the full cart unchanged, so the normal approve-as-is flow is intact).
     const patch: Record<string, unknown> = { status: verdict, decided_at: new Date().toISOString(), token_used: true };
+    let edited = false;
     if (verdict === 'approved' && selection) {
       const orig = Array.isArray(row.items) ? row.items : [];
       const byAsin = new Map(selection.filter((s: any) => s && s.asin != null).map((s: any) => [String(s.asin), s]));
@@ -81,7 +83,7 @@ Deno.serve(async (req) => {
         });
       const sameCount = kept.length === orig.length;
       const sameQty = kept.every((it: any, i: number) => Number(it.qty || 1) === Number((orig[i] && orig[i].qty) || 1));
-      const edited = kept.length > 0 && (!sameCount || !sameQty);
+      edited = kept.length > 0 && (!sameCount || !sameQty);
       if (edited) {
         patch.items = kept;
         let sum = 0, allPriced = true;
@@ -105,10 +107,15 @@ Deno.serve(async (req) => {
       const { data: fresh } = await supabase.from('purchase_requests').select('status').eq('token', token).maybeSingle();
       return json({ ok: true, status: (fresh && fresh.status) || 'decided', alreadyDecided: true });
     }
+    // Persist the "edited" flag best-effort (so a later Telegram tap also shows it);
+    // never let a missing column fail the recorded decision.
+    if (edited) {
+      try { await supabase.from('purchase_requests').update({ guardian_edited: true }).eq('token', token); } catch { /* ignore */ }
+    }
     // This call is the one that recorded the verdict → confirm it back to Telegram
     // (only the web page reaches this function; a Telegram tap goes to the webhook).
     const finalTotal = (patch.total != null) ? patch.total : row.total;
-    if (row.telegram_chat_id) await notifyTelegram(row, verdict, finalTotal);
+    if (row.telegram_chat_id) await notifyTelegram(row, verdict, finalTotal, edited);
     return json({ ok: true, status: verdict });
   }
 
