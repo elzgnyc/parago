@@ -60,7 +60,13 @@ function buildSegs() {
     { v: 'hide', label: t('mode_hide_seg') },
     { v: 'off', label: t('mode_off_seg') },
   ]);
-  for (const k of boolSegs) initSeg(k, [{ v: true, label: t('on') }, { v: false, label: t('off') }]);
+  for (const k of boolSegs) {
+    // devMode reads better Off-first (it is a rarely-enabled, off-by-default control).
+    const opts = k === 'devMode'
+      ? [{ v: false, label: t('off') }, { v: true, label: t('on') }]
+      : [{ v: true, label: t('on') }, { v: false, label: t('off') }];
+    initSeg(k, opts);
+  }
 }
 
 // ── Detail level (Simple / Advanced) ─────────────────────────────────────────────
