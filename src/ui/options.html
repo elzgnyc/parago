@@ -83,10 +83,11 @@
         <p class="field-hint" data-adv data-i18n="hint_functions_url">Needed to send approval emails. Paste your Supabase project's Edge Functions URL. The Brevo key and service-role key stay on the server.</p>
 
         <div class="field" data-adv>
-          <label for="githubUsername" data-i18n="label_github_user">GitHub username (approval page)</label>
-          <input type="text" id="githubUsername" class="wide-input" placeholder="your-github-username" spellcheck="false" autocapitalize="off" autocorrect="off" />
+          <label for="githubUsername" data-i18n="label_github_user">GitHub username</label>
+          <input type="text" id="githubUsername" class="wide-input" placeholder="your-username" spellcheck="false" autocapitalize="off" autocorrect="off" />
+          <p class="url-preview" id="githubUrlPreview" aria-live="polite"></p>
         </div>
-        <p class="field-hint" data-adv data-i18n="hint_github_user">The approval page opens at https://USERNAME.github.io/parago/approve.html. Enable GitHub Pages on your fork (main branch) so the link works. Blank uses the server default.</p>
+        <p class="field-hint" data-adv data-i18n="hint_github_user">Hosts the approve / reject page. Turn on GitHub Pages for your fork (serve /docs from main) so the link resolves. Leave blank for the server default.</p>
       </section>
 
       <section class="card">

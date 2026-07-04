@@ -271,6 +271,16 @@ function applyI18n() {
   document.documentElement.lang = document.getElementById('lang').value;
 }
 
+// Show the full approval URL the entered GitHub username resolves to, so it is
+// obvious only the username goes in the box (the server builds the rest).
+function updateGithubPreview() {
+  const el = document.getElementById('githubUrlPreview');
+  if (!el) return;
+  const user = document.getElementById('githubUsername').value.trim().replace(/^@/, '');
+  el.textContent = `https://${user || 'your-username'}.github.io/parago/approve.html`;
+  el.classList.toggle('is-placeholder', !user);
+}
+
 function load(settings) {
   document.getElementById('lang').value = settings.lang;
   document.getElementById('minStars').value = settings.minStars;
@@ -279,6 +289,7 @@ function load(settings) {
   document.getElementById('guardianEmail').value = settings.guardianEmail;
   document.getElementById('functionsBaseUrl').value = settings.functionsBaseUrl || '';
   document.getElementById('githubUsername').value = settings.githubUsername || '';
+  updateGithubPreview();
   setSeg('deliveryMethod', settings.deliveryMethod || 'email');
   setSeg('guardianMode', settings.guardianMode);
   setSeg('mode', settings.mode);
@@ -410,6 +421,7 @@ async function main() {
   for (const id of fields) {
     document.getElementById(id).addEventListener('change', save);
   }
+  document.getElementById('githubUsername').addEventListener('input', updateGithubPreview);
   document.getElementById('reset').addEventListener('click', resetDefaults);
   document.getElementById('tgLinkBtn').addEventListener('click', setupTelegramLink);
   document.getElementById('tgResetBtn').addEventListener('click', resetTelegramLink);

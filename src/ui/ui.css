@@ -112,6 +112,16 @@ input[type="email"] {
   font-family: ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
   letter-spacing: -0.01em;
 }
+/* Live preview of the URL the github username resolves to. */
+.url-preview {
+  margin: 7px 0 0;
+  font-size: 0.76rem;
+  font-family: ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
+  color: var(--accent-strong);
+  word-break: break-all;
+  line-height: 1.4;
+}
+.url-preview.is-placeholder { color: var(--muted); opacity: 0.85; }
 select:focus,
 input:focus {
   outline: none;
