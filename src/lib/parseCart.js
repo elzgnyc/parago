@@ -364,6 +364,25 @@ export function parseOrderBreakdown(root = document) {
   return out.length ? out : null;
 }
 
+// Partial ship-to + payment from the checkout page, so the guardian sees WHERE it ships
+// and WHICH card — never full/sensitive detail. Ship-to is only the "City, ST ZIP" line
+// (no street/name); payment is only "CardType ****1234". Best-effort across cart
+// variants; null when not found. (Selectors are unverified against a live checkout DOM.)
+export function parseCheckoutInfo(root = document) {
+  const collapse = (s) => String(s || '').replace(/\s+/g, ' ').trim();
+  let payment = null, shipTo = null;
+
+  const payScope = root.querySelector('#paymentMethod, #payment, #apx-secure-display-none, [class*="payment" i]') || root.body || root;
+  const pm = collapse(payScope.textContent).match(/\b(Visa|Mastercard|MasterCard|American Express|Amex|Discover|Diners Club|JCB|UnionPay)\b[^.]{0,24}?(?:ending(?:\s+in)?|\bin\b|\*{2,})\s*(\d{4})\b/i);
+  if (pm) payment = collapse(pm[1]).replace(/mastercard/i, 'Mastercard') + ' ••••' + pm[2];
+
+  const addrScope = root.querySelector('#addressList, #shipToInsertionNode, [data-testid*="address" i], [class*="address" i]') || root.body || root;
+  const cs = collapse(addrScope.textContent).match(/([A-Z][A-Za-z.\-' ]{1,28}),\s*([A-Z]{2})\s+(\d{5})(?:-\d{4})?\b/);
+  if (cs) shipTo = `${cs[1].trim()}, ${cs[2]} ${cs[3]}`;
+
+  return (payment || shipTo) ? { shipTo, payment } : null;
+}
+
 export function parseCart(root = document) {
   const items = parseCartItems(root);
   let total = parseCartTotal(root);

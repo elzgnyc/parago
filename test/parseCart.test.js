@@ -1,7 +1,22 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { parseCart, parseCartItems, parseCartTotal, parseDeliveryExpiry, parseOrderBreakdown } from '../src/lib/parseCart.js';
+import { parseCart, parseCartItems, parseCartTotal, parseDeliveryExpiry, parseOrderBreakdown, parseCheckoutInfo } from '../src/lib/parseCart.js';
 
 afterEach(() => { document.body.innerHTML = ''; });
+
+describe('parseCheckoutInfo (partial ship-to + payment)', () => {
+  it('captures the card (type + last 4) and city/state/zip only', () => {
+    document.body.innerHTML = `
+      <div id="paymentMethod">Paying with Visa ending in 4821</div>
+      <div id="addressList">Brooklyn, NY 11201</div>`;
+    const ci = parseCheckoutInfo(document);
+    expect(ci.payment).toBe('Visa ••••4821');
+    expect(ci.shipTo).toBe('Brooklyn, NY 11201'); // no name, no street
+  });
+  it('returns null when neither is present', () => {
+    document.body.innerHTML = '<div>nothing here</div>';
+    expect(parseCheckoutInfo(document)).toBeNull();
+  });
+});
 
 describe('parseOrderBreakdown', () => {
   const row = (label, amount, bold) => `

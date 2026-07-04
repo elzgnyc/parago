@@ -37,12 +37,13 @@ export class SupabaseRelay {
     this.pollMs = pollMs || 3000;
   }
 
-  async submitRequest({ total, items, breakdown }) {
+  async submitRequest({ total, items, breakdown, shipTo, payment }) {
     const body = await this.send(`${this.baseUrl}/create-request`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         total, items: items || [], breakdown: breakdown || null,
+        shipTo: shipTo || null, payment: payment || null,
         deliveryMethod: this.deliveryMethod,
         guardianEmail: this.guardianEmail, guardianName: this.guardianName,
         telegramLinkCode: this.telegramLinkCode,

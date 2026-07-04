@@ -23,7 +23,7 @@ Deno.serve(async (req) => {
   const {
     total = null, items = [], deliveryMethod = 'email',
     guardianEmail = null, guardianName = null, telegramLinkCode = null,
-    githubUsername = null, breakdown = null,
+    githubUsername = null, breakdown = null, shipTo = null, payment = null,
   } = body ?? {};
 
   const supabase = createClient(
@@ -74,10 +74,15 @@ Deno.serve(async (req) => {
     .single();
   if (error) return json({ error: 'insert_failed', detail: error.message }, 500);
 
-  // Attach the order-summary breakdown separately + best-effort: a failure here (e.g. the
-  // column not migrated yet) must never fail the request or leave an orphan pending row.
-  if (Array.isArray(breakdown) && breakdown.length) {
-    try { await supabase.from('purchase_requests').update({ breakdown }).eq('id', data.id); } catch { /* ignore */ }
+  // Attach the order-summary breakdown + partial ship-to/payment separately and
+  // best-effort: a failure here (e.g. a column not migrated yet) must never fail the
+  // request or leave an orphan pending row.
+  const extra: Record<string, unknown> = {};
+  if (Array.isArray(breakdown) && breakdown.length) extra.breakdown = breakdown;
+  if (typeof shipTo === 'string' && shipTo) extra.ship_to = shipTo.slice(0, 80);
+  if (typeof payment === 'string' && payment) extra.payment = payment.slice(0, 40);
+  if (Object.keys(extra).length) {
+    try { await supabase.from('purchase_requests').update(extra).eq('id', data.id); } catch { /* ignore */ }
   }
 
   // The approval link points at the static page (GitHub Pages), which renders the
