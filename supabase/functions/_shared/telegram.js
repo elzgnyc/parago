@@ -20,7 +20,21 @@ function clean(s) {
     const bad = c < 0x20 || c === 0x7f || c === 0x2028 || c === 0x2029 || (c >= 0x202a && c <= 0x202e);
     out += bad ? ' ' : ch;
   }
-  return out.trim();
+  // Also strip Amazon's hidden "Opens in a new tab" link text that older captures may
+  // still carry, and collapse whitespace, so it never shows in the approval message.
+  return out
+    .replace(/\s+/g, ' ')
+    .replace(/\(?\s*opens?\s+in\s+(?:a\s+)?new\s+(?:tab|window)\s*\)?\.?/ig, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// A usable product photo (not a loading spinner / placeholder). Amazon serves the
+// real image under /images/I/ and its cart spinner under /images/G/…loading-large.gif;
+// reject the latter (and data: / .gif) so a stale capture never leads with a spinner.
+function isProductPhoto(u) {
+  if (typeof u !== 'string' || !/^https?:\/\//i.test(u)) return false;
+  return !/\/images\/G\/|loading|spinner|grey-pixel|transparent|\.gif(?:$|\?)/i.test(u);
 }
 
 // Star/rating line, mirroring the email + approve.html rendering. Empty when the
@@ -82,7 +96,7 @@ export function buildTelegramMessage({ chatId, total, items, link, token }) {
     ],
   };
 
-  const firstImg = shown.map((it) => it && it.image).find((u) => typeof u === 'string' && /^https?:\/\//i.test(u));
+  const firstImg = shown.map((it) => it && it.image).find(isProductPhoto);
   if (firstImg) {
     return { method: 'sendPhoto', payload: { chat_id: chatId, photo: firstImg, caption: text, reply_markup } };
   }

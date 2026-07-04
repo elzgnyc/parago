@@ -7,6 +7,21 @@ function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, (c) =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
+// Strip Amazon's hidden "Opens in a new tab" link text (older captures may still carry
+// it) and collapse whitespace, so it never shows in the email.
+function cleanTitle(s) {
+  return String(s == null ? '' : s)
+    .replace(/\s+/g, ' ')
+    .replace(/\(?\s*opens?\s+in\s+(?:a\s+)?new\s+(?:tab|window)\s*\)?\.?/ig, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+// A usable product photo, not a loading spinner/placeholder (Amazon's cart spinner is
+// /images/G/…loading-large.gif; the real image is /images/I/…).
+function isProductPhoto(u) {
+  if (typeof u !== 'string' || !/^https?:\/\//i.test(u)) return false;
+  return !/\/images\/G\/|loading|spinner|grey-pixel|transparent|\.gif(?:$|\?)/i.test(u);
+}
 // Render the star/rating meta line for the HTML email. Returns '' when rating is
 // not a finite number; omits the review count when reviewCount is missing.
 function renderStars(rating, reviewCount) {
@@ -36,9 +51,9 @@ export function buildBrevoPayload({ senderEmail, senderName, guardianEmail, guar
 
   const itemsHtml = list.map((it) => {
     const o = it || {};
-    const title = escapeHtml(o.title || 'Item');
-    // Only emit an <img> when image looks like an http(s) URL (clients may block it).
-    const img = (typeof o.image === 'string' && /^https?:\/\//i.test(o.image))
+    const title = escapeHtml(cleanTitle(o.title) || 'Item');
+    // Only emit an <img> for a real product photo (never a loading spinner).
+    const img = isProductPhoto(o.image)
       ? `<img src="${escapeHtml(o.image)}" width="64" height="64" alt="" style="vertical-align:top;border:0" /> `
       : '';
     // Link the title to the product page only for an http(s) url. escapeHtml
@@ -69,12 +84,12 @@ export function buildBrevoPayload({ senderEmail, senderName, guardianEmail, guar
         ? ` ${r.toFixed(1)} (${rc.toLocaleString()} ratings)`
         : ` ${r.toFixed(1)}`;
     }
-    return `- ${o.title || 'Item'}${price}${qty}${rating}`;
+    return `- ${cleanTitle(o.title) || 'Item'}${price}${qty}${rating}`;
   }).join('\n');
 
   // Name the first item (and a "+N more" count) in the subject, so a guardian with
   // several pending requests can tell them apart at a glance instead of "a purchase".
-  const firstTitle = ((list[0] && list[0].title) ? String(list[0].title) : '').replace(/\s+/g, ' ').trim().slice(0, 60);
+  const firstTitle = cleanTitle(list[0] && list[0].title).slice(0, 60);
   const moreCount = list.length > 1 ? ` (+${list.length - 1} more)` : '';
   const subject = firstTitle ? `Approve $${totalStr}: ${firstTitle}${moreCount}` : `Approve a purchase: $${totalStr}`;
   const htmlContent =

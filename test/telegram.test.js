@@ -14,6 +14,16 @@ describe('buildTelegramMessage', () => {
     token: 'TOK',
   };
 
+  it('strips "Opens in a new tab" from titles and skips a loading-spinner image', () => {
+    const m = buildTelegramMessage({
+      ...base,
+      items: [{ title: 'MAREE Batana Oil Opens in a new tab', price: 9.99, image: 'https://m.media-amazon.com/images/G/01/ui/loadIndicators/loading-large.gif' }],
+    });
+    expect(m.payload.caption || m.payload.text).toContain('MAREE Batana Oil');
+    expect(m.payload.caption || m.payload.text).not.toMatch(/opens in a new tab/i);
+    expect(m.method).toBe('sendMessage'); // spinner rejected → no photo
+  });
+
   it('uses sendPhoto with the first item image, addressed to the chat', () => {
     const m = buildTelegramMessage(base);
     expect(m.method).toBe('sendPhoto');
