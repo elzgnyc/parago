@@ -247,6 +247,30 @@ function stashCart(root = document) {
     }
   } catch (e) { /* no-op */ }
 }
+
+// stashCart runs once on load, but the shopper can check/uncheck cart items AFTER that,
+// and the Options "Send a test" reads the STORED snapshot (it can't see the live cart
+// DOM from another page). So re-capture, debounced, whenever a line's selection flips
+// (Amazon updates data-isselected) or the item set changes — the snapshot then always
+// reflects the CURRENTLY selected items, for both the test send and a real checkout.
+function watchCartForSelection(root = document) {
+  try {
+    if (typeof MutationObserver === 'undefined') return;
+    const scope = root.querySelector('#sc-active-cart, #activeCartViewForm, #sc-active-cart-content') || root.body || root;
+    if (!scope || !scope.addEventListener) return;
+    let timer = null;
+    const restash = () => { clearTimeout(timer); timer = setTimeout(() => stashCart(root), 400); };
+    new MutationObserver(restash).observe(scope, {
+      subtree: true, childList: true, attributes: true, attributeFilter: ['data-isselected'],
+    });
+    // Belt-and-suspenders: also re-capture just after a click on a checkbox/label, in
+    // case a cart variant drives selection without flipping data-isselected in place.
+    scope.addEventListener('click', (e) => {
+      const t = e.target;
+      if (t && t.closest && t.closest('input[type="checkbox"], label, [class*="checkbox" i]')) restash();
+    }, true);
+  } catch (e) { /* no-op */ }
+}
 async function bestKnownPurchase(root = document) {
   const finalTotal = parseFinalOrderTotal(root);
   const parsed = parseCart(root);
@@ -419,7 +443,10 @@ export async function run() {
   setLang(settings.lang);
   relay = buildRelay(settings);
 
-  if (isCartUrl()) stashCart(document); // capture the cart for the guardian email before checkout
+  if (isCartUrl()) {
+    stashCart(document);            // capture the cart for the guardian before checkout
+    watchCartForSelection(document); // ...and re-capture when the shopper toggles item selection
+  }
 
   if (settings.guardianMode !== 'off') {
     // Arm the interceptor FIRST, with the approvals already on disk, so there is never a
