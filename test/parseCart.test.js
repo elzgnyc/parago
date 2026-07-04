@@ -1,7 +1,33 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { parseCart, parseCartItems, parseCartTotal } from '../src/lib/parseCart.js';
+import { parseCart, parseCartItems, parseCartTotal, parseDeliveryExpiry } from '../src/lib/parseCart.js';
 
 afterEach(() => { document.body.innerHTML = ''; });
+
+describe('delivery capture', () => {
+  it('captures the delivery window, dropping the "$25 of qualifying items" tail', () => {
+    document.body.innerHTML = `
+      <div id="sc-active-cart">
+        <div class="sc-list-item" data-asin="D1" data-isselected="1">
+          <div class="sc-product-title">Fast Item</div>
+          <div class="udm-primary-delivery-message">FREE delivery Overnight 4 AM - 8 AM on $25 of qualifying items</div>
+        </div>
+      </div>`;
+    expect(parseCartItems(document)[0].delivery).toBe('FREE delivery Overnight 4 AM - 8 AM');
+  });
+
+  it('parseDeliveryExpiry resolves "Order within Xh Ym" to an absolute cutoff', () => {
+    const now = 1_000_000_000;
+    expect(parseDeliveryExpiry('Order within 3 hrs 20 mins', now)).toBe(now + (3 * 60 + 20) * 60000);
+    expect(parseDeliveryExpiry('Order within 45 mins', now)).toBe(now + 45 * 60000);
+    expect(parseDeliveryExpiry('Order within 2 hours', now)).toBe(now + 120 * 60000);
+  });
+
+  it('parseDeliveryExpiry returns null when there is no cutoff phrase', () => {
+    expect(parseDeliveryExpiry('FREE delivery tomorrow', 1000)).toBeNull();
+    expect(parseDeliveryExpiry('', 1000)).toBeNull();
+    expect(parseDeliveryExpiry(null, 1000)).toBeNull();
+  });
+});
 
 describe('parseCartTotal label fallback', () => {
   it('reads the price, not the item count, from a "Subtotal (N items): $X" row', () => {

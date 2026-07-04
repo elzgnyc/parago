@@ -140,6 +140,26 @@ function parseItemReviewCount(node) {
   return null;
 }
 
+// The delivery window Amazon shows on the line ("FREE delivery Overnight 4 AM - 8 AM").
+// Captured so the guardian sees WHEN it arrives without going to Amazon. The "$25 of
+// qualifying items" tail is dropped. null when absent.
+function parseDelivery(node) {
+  const el = node.querySelector('.udm-primary-delivery-message, .sc-delivery-messaging, [data-cy="delivery-block"], [class*="delivery-message" i]');
+  if (!el) return null;
+  const t = (el.textContent || '').replace(/\s+/g, ' ').replace(/\s*on \$[\d.,]+ of qualifying items.*$/i, '').trim();
+  return t ? t.slice(0, 120) : null;
+}
+
+// Some delivery promises carry a cutoff ("Order within 3 hrs 20 mins"). Resolve it to
+// an ABSOLUTE expiry (now + remaining) so the approval page can count it down and mark
+// the slot Expired once it passes. Exported for testing. null when there is no cutoff.
+export function parseDeliveryExpiry(text, nowMs) {
+  const m = String(text || '').match(/order within\s+(?:(\d+)\s*(?:hours?|hrs?))?\s*(?:(\d+)\s*(?:minutes?|mins?))?/i);
+  if (!m || (!m[1] && !m[2])) return null;
+  const durMs = ((parseInt(m[1] || '0', 10) * 60) + parseInt(m[2] || '0', 10)) * 60000;
+  return durMs > 0 ? nowMs + durMs : null;
+}
+
 // The active cart (what's actually being purchased). Amazon's "Saved for later"
 // list uses the SAME .sc-list-item[data-asin] markup, so without scoping it would
 // count as being in the cart. Prefer parsing inside one of these; fall back to the
@@ -262,7 +282,9 @@ export function parseCartItems(root = document) {
     const url = asin ? ('https://www.amazon.com/dp/' + asin) : null;
     const rating = parseItemRating(node);
     const reviewCount = parseItemReviewCount(node);
-    items.push({ asin, title, price, qty, image, url, rating, reviewCount });
+    const delivery = parseDelivery(node);
+    const deliveryExpiry = parseDeliveryExpiry(node.textContent, Date.now());
+    items.push({ asin, title, price, qty, image, url, rating, reviewCount, delivery, deliveryExpiry });
   }
   return items;
 }

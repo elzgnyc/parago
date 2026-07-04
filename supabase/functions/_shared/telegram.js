@@ -82,6 +82,7 @@ export function buildTelegramMessage({ chatId, total, items, link, token }) {
     parts.push(`${i + 1}. ${title}`);
     const detail = [price && (qty > 1 ? `${price} ×${qty}` : price), meta].filter(Boolean).join('    ');
     if (detail) parts.push(`    ${detail}`);
+    if (typeof o.delivery === 'string' && o.delivery) parts.push(`    ${clean(o.delivery)}`);
   });
   const extra = list.length - shown.length;
   if (extra > 0) parts.push('', `+${extra} more item${extra > 1 ? 's' : ''}`);

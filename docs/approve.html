@@ -56,6 +56,9 @@
   .it-facts a{color:var(--accent);text-decoration:none}
   .it-facts a:hover{text-decoration:underline}
   .it-asin{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.74rem}
+  .it-delivery{margin-top:7px;font-size:.84rem;color:var(--ink)}
+  .deadline{margin-top:3px;font-size:.8rem;font-weight:700;color:var(--accent-strong)}
+  .deadline.expired{color:var(--danger)}
   .applink{display:inline-block;margin-top:10px;font-size:.82rem;font-weight:700;text-decoration:none;
     color:var(--accent);padding:6px 12px;border:1.5px solid var(--accent);border-radius:999px}
   .applink:hover{background:var(--accent);color:#fff}
@@ -186,6 +189,17 @@
     if (it && it.asin) facts.appendChild(elt('span', { cls:'it-asin', text:'ASIN ' + it.asin }));
     if (facts.childNodes.length) body.appendChild(facts);
 
+    // Delivery window captured from the cart, plus a live countdown to the order
+    // cutoff so the guardian knows if the slot is still available (see tickDeadlines).
+    if (it && typeof it.delivery === 'string' && it.delivery){
+      body.appendChild(elt('div', { cls:'it-delivery', text: it.delivery }));
+    }
+    if (it && typeof it.deliveryExpiry === 'number' && isFinite(it.deliveryExpiry)){
+      var dl = elt('div', { cls:'deadline' });
+      dl.setAttribute('data-expiry', String(it.deliveryExpiry));
+      body.appendChild(dl);
+    }
+
     // Primary path: open the Amazon APP (already signed in on the phone) to the full
     // product — reviews, Q&A, everything — with no browser login wall. Custom scheme
     // opens the app where installed; a no-op elsewhere, which is why the inline
@@ -217,6 +231,29 @@
     return li;
   }
 
+  // Live countdown to each item's order cutoff. Amazon's delivery promise ("Order
+  // within 3 hrs 20 mins") was resolved to an absolute expiry at capture time, so we
+  // compare it to now: still open → show the time left; passed → mark the slot expired.
+  function tickDeadlines(){
+    var now = Date.now();
+    var els = document.querySelectorAll('.deadline');
+    for (var i = 0; i < els.length; i++){
+      var el = els[i];
+      var exp = parseInt(el.getAttribute('data-expiry'), 10);
+      if (!isFinite(exp)){ el.textContent = ''; continue; }
+      var rem = exp - now;
+      if (rem <= 0){
+        el.textContent = 'This delivery slot has expired';
+        el.className = 'deadline expired';
+      } else {
+        var mins = Math.floor(rem / 60000), h = Math.floor(mins / 60), m = mins % 60;
+        el.textContent = 'Order within ' + (h > 0 ? h + 'h ' : '') + m + 'm to keep this delivery slot';
+        el.className = 'deadline';
+      }
+    }
+  }
+  setInterval(tickDeadlines, 1000);
+
   function centered(nodes){
     clear(app);
     var d = elt('div', { cls:'center' });
@@ -242,6 +279,7 @@
     var ul = elt('ul', { cls:'items' });
     items.forEach(function(it, i){ ul.appendChild(itemRow(it || {}, i)); });
     app.appendChild(ul);
+    tickDeadlines(); // paint countdowns immediately, then the interval keeps them live
 
     var bar = elt('div', { cls:'actions' });
     var approve = elt('button', { cls:'ok', text:'Approve' });

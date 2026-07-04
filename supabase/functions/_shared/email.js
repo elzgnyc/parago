@@ -66,10 +66,12 @@ export function buildBrevoPayload({ senderEmail, senderName, guardianEmail, guar
       : title;
     const meta = renderStars(o.rating, o.reviewCount);
     const metaHtml = meta ? `<div style="color:#888;font-size:12px">${meta}</div>` : '';
+    const delivery = (typeof o.delivery === 'string' && o.delivery) ? o.delivery : '';
+    const deliveryHtml = delivery ? `<div style="color:#555;font-size:12px">${escapeHtml(delivery)}</div>` : '';
     const price = (typeof o.price === 'number') ? ` · $${money(o.price)}` : '';
     const qtyNum = Number(o.qty);
     const qty = (Number.isFinite(qtyNum) && qtyNum > 1) ? ` × ${qtyNum}` : '';
-    return `<li style="margin-bottom:12px">${img}${titleHtml}${price}${qty}${metaHtml}</li>`;
+    return `<li style="margin-bottom:12px">${img}${titleHtml}${price}${qty}${metaHtml}${deliveryHtml}</li>`;
   }).join('');
   const itemsText = list.map((it) => {
     const o = it || {};
