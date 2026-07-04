@@ -68,7 +68,7 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-body.popup { width: 344px; padding: 18px; }
+body.popup { width: 344px; padding: 16px; }
 body.options { padding: 40px 28px 56px; }
 .container { max-width: none; margin: 0; }
 
@@ -245,19 +245,23 @@ input.switch:focus-visible { box-shadow: 0 0 0 3px var(--accent-tint); }
 
 /* Popup header: logo + name on the left, a compact protection switch + settings gear
    on the right. The switch controls the search filter on/off, nothing else. */
-.pop-head { display: flex; align-items: center; gap: 10px; margin: -2px 0 16px; }
-.pop-mark { flex: 0 0 auto; width: 26px; height: 26px; border-radius: 7px; object-fit: contain; }
+/* margin:0 — the header owns no bottom space, so with the pending list hidden the popup
+   isn't left with a fat empty strip; .pop-orders adds its own gap only when shown. */
+.pop-head { display: flex; align-items: center; gap: 11px; margin: 0; }
+.pop-mark { flex: 0 0 auto; width: 30px; height: 30px; border-radius: 8px; object-fit: contain; }
 .pop-name {
   flex: 1 1 auto; margin-right: auto;
-  font-family: var(--font-display); font-weight: 600; font-size: 1.15rem;
+  font-family: var(--font-display); font-weight: 600; font-size: 1.2rem;
   letter-spacing: -0.01em;
 }
-.pop-switch { flex: 0 0 auto; width: 44px; height: 24px; }
-.pop-switch::before { width: 18px; height: 18px; top: 3px; left: 3px; }
+/* Switch + gear sized to the same visual height (26px) so they read as a matched pair. */
+.pop-switch { flex: 0 0 auto; width: 46px; height: 26px; }
+.pop-switch::before { width: 20px; height: 20px; top: 3px; left: 3px; }
 .pop-switch:checked::before { transform: translateX(20px); }
+.pop-orders { margin-top: 16px; }
 .pop-icon-btn {
   flex: 0 0 auto; display: grid; place-items: center;
-  width: 32px; height: 32px; padding: 0;
+  width: 30px; height: 30px; padding: 0;
   border: 0; background: transparent; color: var(--ink-soft);
   border-radius: 8px; cursor: pointer;
 }
