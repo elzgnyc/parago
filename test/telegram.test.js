@@ -62,11 +62,14 @@ describe('buildTelegramMessage', () => {
     expect(c).toContain('1. Anker USB-C Cable');
     expect(c).toContain('2. Logitech Mouse');
   });
-  it('inline keyboard has approve/reject callbacks and a details url', () => {
+  it('inline keyboard has approve/reject callbacks and a details url, with plain (no-emoji) labels', () => {
     const kb = buttonSend(buildTelegramMessage(base)).payload.reply_markup.inline_keyboard;
     expect(kb[0][0].callback_data).toBe('a:TOK');
     expect(kb[0][1].callback_data).toBe('r:TOK');
     expect(kb[1][0].url).toBe(base.link);
+    expect(kb[0][0].text).toBe('Approve');
+    expect(kb[0][1].text).toBe('Reject');
+    expect(kb[1][0].text).toBe('See full details');
   });
   it('falls back to a single sendMessage when no item has an http image', () => {
     const m = buildTelegramMessage({ ...base, items: [{ title: 'No image item', price: 5 }] });
@@ -102,9 +105,10 @@ describe('buildTelegramMessage', () => {
 });
 
 describe('parseCallbackData', () => {
-  it('parses approve and reject', () => {
+  it('parses approve, reject and undo', () => {
     expect(parseCallbackData('a:TOK')).toEqual({ verdict: 'approved', token: 'TOK' });
     expect(parseCallbackData('r:TOK')).toEqual({ verdict: 'rejected', token: 'TOK' });
+    expect(parseCallbackData('u:TOK')).toEqual({ verdict: 'undo', token: 'TOK' });
   });
   it('splits on the first colon only, so a token containing a colon survives', () => {
     expect(parseCallbackData('a:to:ken')).toEqual({ verdict: 'approved', token: 'to:ken' });

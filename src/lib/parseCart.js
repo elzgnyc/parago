@@ -140,13 +140,32 @@ function parseItemReviewCount(node) {
   return null;
 }
 
-// The delivery window Amazon shows on the line ("FREE delivery Overnight 4 AM - 8 AM").
-// Captured so the guardian sees WHEN it arrives without going to Amazon. The "$25 of
-// qualifying items" tail is dropped. null when absent.
+// The delivery line Amazon shows for a cart item ("FREE delivery Thursday, July 10"
+// or "FREE delivery Overnight 4 AM - 8 AM"). Select ONLY the single primary-message
+// element: broader containers concatenate the Prime badge + returns text with no
+// spaces ("OvernightFREE deliveryFREE Returns..."). Whitespace between text nodes is
+// forced so adjacent runs never stick together; the "$25 of qualifying items" tail and
+// any "FREE Returns"/"Order within" trailer are dropped. null when absent.
 function parseDelivery(node) {
-  const el = node.querySelector('.udm-primary-delivery-message, .sc-delivery-messaging, [data-cy="delivery-block"], [class*="delivery-message" i]');
+  const el = node.querySelector('.udm-primary-delivery-message')
+    || node.querySelector('[data-cy="delivery-block"] .udm-primary-delivery-message')
+    || node.querySelector('.a-color-success.sc-product-availability + * .udm-primary-delivery-message');
   if (!el) return null;
-  const t = (el.textContent || '').replace(/\s+/g, ' ').replace(/\s*on \$[\d.,]+ of qualifying items.*$/i, '').trim();
+  // textContent can jam an inline element's text against its neighbour when Amazon omits
+  // whitespace; join child text nodes with spaces instead, then normalise.
+  let t = '';
+  const walk = (n) => {
+    for (const c of n.childNodes) {
+      if (c.nodeType === 3) t += ' ' + (c.textContent || '');
+      else if (c.nodeType === 1) walk(c);
+    }
+  };
+  walk(el);
+  t = t.replace(/\s+/g, ' ')
+    .replace(/\s*on \$[\d.,]+ of qualifying items.*$/i, '')
+    .replace(/\s*FREE Returns.*$/i, '')
+    .replace(/\s*Order within.*$/i, '')
+    .trim();
   return t ? t.slice(0, 120) : null;
 }
 

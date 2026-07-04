@@ -15,6 +15,21 @@ describe('delivery capture', () => {
     expect(parseCartItems(document)[0].delivery).toBe('FREE delivery Overnight 4 AM - 8 AM');
   });
 
+  it('does not jam the Prime badge against the message, and keeps the date', () => {
+    document.body.innerHTML = `
+      <div id="sc-active-cart">
+        <div class="sc-list-item" data-asin="D2" data-isselected="1">
+          <div class="sc-product-title">Item</div>
+          <div class="udm-delivery-block">
+            <div class="udm-badge-block"><span class="a-icon-text">Overnight</span></div>
+            <div class="udm-primary-delivery-message"><div class="a-column">FREE delivery <span class="a-text-bold">Thursday, July 10</span> on $25 of qualifying items</div></div>
+          </div>
+        </div>
+      </div>`;
+    // Badge "Overnight" not glued on; "FREE delivery" and the date keep their space.
+    expect(parseCartItems(document)[0].delivery).toBe('FREE delivery Thursday, July 10');
+  });
+
   it('parseDeliveryExpiry resolves "Order within Xh Ym" to an absolute cutoff', () => {
     const now = 1_000_000_000;
     expect(parseDeliveryExpiry('Order within 3 hrs 20 mins', now)).toBe(now + (3 * 60 + 20) * 60000);

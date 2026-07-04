@@ -1,7 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders, preflight } from '../_shared/cors.js';
 import { isActionable } from '../_shared/decision.js';
-import { parseCallbackData } from '../_shared/telegram.js';
+import { parseCallbackData, buildTelegramMessage } from '../_shared/telegram.js';
 
 // Telegram webhook + link helper. Two audiences:
 //  - Telegram POSTs bot updates here (verified by the secret token set on the
@@ -31,17 +31,35 @@ function decisionSummary(verdict: string, row: any): string {
   return `${verdict === 'approved' ? 'Approved' : 'Rejected'}${total}${items} · ${when}`;
 }
 
-// Edit the approval message down to that summary, removing BOTH the item list and the
-// buttons (an edit with no reply_markup drops the inline keyboard). A photo message
-// carries its body in a caption; a text message in text.
+// Edit the approval message down to that summary, replacing the item list + Approve/
+// Reject with a single Undo button — so an accidental tap can be corrected (we all make
+// mistakes). A photo message carries its body in a caption; a text message in text.
 async function collapseMessage(chatId: unknown, message: any, verdict: string, row: any) {
   const messageId = message?.message_id;
   if (!messageId) return;
   const text = decisionSummary(verdict, row);
+  const reply_markup = { inline_keyboard: [[{ text: 'Undo', callback_data: 'u:' + row.token }]] };
   const isPhoto = Array.isArray(message.photo) && message.photo.length > 0;
   await tg(isPhoto ? 'editMessageCaption' : 'editMessageText',
-    isPhoto ? { chat_id: chatId, message_id: messageId, caption: text }
-            : { chat_id: chatId, message_id: messageId, text, disable_web_page_preview: true });
+    isPhoto ? { chat_id: chatId, message_id: messageId, caption: text, reply_markup }
+            : { chat_id: chatId, message_id: messageId, text, reply_markup, disable_web_page_preview: true });
+}
+
+// Undo: restore the full item list + Approve/Reject buttons on the same message, so the
+// guardian can decide again. Rebuilds the body from the stored row; the "See full
+// details" link is reconstructed from the server default (APPROVE_URL).
+async function restoreMessage(chatId: unknown, message: any, row: any) {
+  const messageId = message?.message_id;
+  if (!messageId) return;
+  const approveBase = (Deno.env.get('APPROVE_URL') ?? 'https://elzgnyc.github.io/parago/approve.html').replace(/\/$/, '');
+  const link = `${approveBase}?token=${row.token}`;
+  const rebuilt = buildTelegramMessage({ chatId, total: row.total, items: row.items, link, token: row.token });
+  const btn = rebuilt.sends.find((s: any) => s.payload.reply_markup) || rebuilt.sends[rebuilt.sends.length - 1];
+  const body = btn.payload.caption ?? btn.payload.text;
+  const isPhoto = Array.isArray(message.photo) && message.photo.length > 0;
+  await tg(isPhoto ? 'editMessageCaption' : 'editMessageText',
+    isPhoto ? { chat_id: chatId, message_id: messageId, caption: body, reply_markup: btn.payload.reply_markup }
+            : { chat_id: chatId, message_id: messageId, text: body, reply_markup: btn.payload.reply_markup, disable_web_page_preview: true });
 }
 
 Deno.serve(async (req) => {
@@ -135,6 +153,22 @@ Deno.serve(async (req) => {
       await tg('answerCallbackQuery', { callback_query_id: cbId, text: 'This request is not available.' });
       return json({ ok: true });
     }
+
+    // Undo an accidental decision: flip a decided request back to pending and restore the
+    // full message + Approve/Reject buttons so the guardian can decide again.
+    if (parsed.verdict === 'undo') {
+      const { data: reverted } = await supabase.from('purchase_requests')
+        .update({ status: 'pending', decided_at: null, token_used: false })
+        .eq('token', parsed.token).in('status', ['approved', 'rejected']).select('id');
+      if (!reverted || !reverted.length) {
+        await tg('answerCallbackQuery', { callback_query_id: cbId, text: 'Nothing to undo.' });
+        return json({ ok: true });
+      }
+      await tg('answerCallbackQuery', { callback_query_id: cbId, text: 'Reopened' });
+      await restoreMessage(chatId, cq.message, row);
+      return json({ ok: true });
+    }
+
     const guard = isActionable(row, Date.now());
     if (!guard.ok) {
       await tg('answerCallbackQuery', { callback_query_id: cbId, text: 'Already decided or expired.' });

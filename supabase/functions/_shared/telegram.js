@@ -88,12 +88,12 @@ export function buildTelegramMessage({ chatId, total, items, link, token }) {
   if (extra > 0) parts.push('', `+${extra} more item${extra > 1 ? 's' : ''}`);
 
   let text = parts.join('\n');
-  if (text.length > CAPTION_LIMIT) text = text.slice(0, CAPTION_LIMIT - 1) + '…';
+  if (text.length > CAPTION_LIMIT) text = text.slice(0, CAPTION_LIMIT - 3) + '...';
 
   const reply_markup = {
     inline_keyboard: [
-      [{ text: '✅ Approve', callback_data: 'a:' + token }, { text: '❌ Reject', callback_data: 'r:' + token }],
-      [{ text: '🔎 See full details', url: link }],
+      [{ text: 'Approve', callback_data: 'a:' + token }, { text: 'Reject', callback_data: 'r:' + token }],
+      [{ text: 'See full details', url: link }],
     ],
   };
 
@@ -129,5 +129,6 @@ export function parseCallbackData(data) {
   if (!token) return null;
   if (prefix === 'a') return { verdict: 'approved', token };
   if (prefix === 'r') return { verdict: 'rejected', token };
+  if (prefix === 'u') return { verdict: 'undo', token };
   return null;
 }
