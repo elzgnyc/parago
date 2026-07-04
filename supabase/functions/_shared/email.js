@@ -54,7 +54,7 @@ export function buildBrevoPayload({ senderEmail, senderName, guardianEmail, guar
     const title = escapeHtml(cleanTitle(o.title) || 'Item');
     // Only emit an <img> for a real product photo (never a loading spinner).
     const img = isProductPhoto(o.image)
-      ? `<img src="${escapeHtml(o.image)}" width="64" height="64" alt="" style="vertical-align:top;border:0" /> `
+      ? `<img src="${escapeHtml(o.image)}" width="96" height="96" alt="" style="vertical-align:top;border:0;border-radius:8px;object-fit:contain;background:#fff" /> `
       : '';
     // Link the title to the product page only for an http(s) url. escapeHtml
     // neutralises quotes/brackets but NOT a "javascript:" scheme (no special

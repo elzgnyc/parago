@@ -171,7 +171,7 @@ describe('parseCart against real Amazon cart markup', () => {
     const items = parseCartItems(document);
     expect(items.map((i) => i.asin)).toEqual(['KEPT']);              // deselected line dropped
     expect(items[0].title).toBe('Selected Product Full Title Here'); // clean: not doubled, no "Opens in a new tab"
-    expect(items[0].image).toBe('https://m.media-amazon.com/images/I/81KyWvpx2cL._AC_AA180_.jpg'); // not the /images/G/ spinner
+    expect(items[0].image).toBe('https://m.media-amazon.com/images/I/81KyWvpx2cL._SL500_.jpg'); // real photo, upsized from the 180px thumb, not the /images/G/ spinner
   });
 
   it('the gift and Subscribe & Save checkboxes never cause a selected line to drop', () => {

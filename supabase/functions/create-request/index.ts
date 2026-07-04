@@ -96,20 +96,28 @@ Deno.serve(async (req) => {
 
   if (deliveryMethod === 'telegram') {
     const botBase = `https://api.telegram.org/bot${Deno.env.get('TELEGRAM_BOT_TOKEN')}`;
-    const msg = buildTelegramMessage({ chatId: telegramChatId, total, items, link, guardianName, token });
-    let res = await fetch(`${botBase}/${msg.method}`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(msg.payload),
+    const post = (method: string, payload: unknown) => fetch(`${botBase}/${method}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
     });
-    // If Telegram cannot fetch the product image (bad URL, size/type, hotlink block), the
-    // sendPhoto fails; fall back to a text-only message so the approval still gets through
-    // rather than 502-ing the whole request and leaving an orphan pending row.
-    if (!res.ok && msg.method === 'sendPhoto') {
-      res = await fetch(`${botBase}/sendMessage`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chat_id: telegramChatId, text: msg.payload.caption, reply_markup: msg.payload.reply_markup, disable_web_page_preview: true }),
-      });
+    const { sends } = buildTelegramMessage({ chatId: telegramChatId, total, items, link, guardianName, token });
+    // Send each call in order. The message that carries reply_markup is the approval
+    // itself (Approve/Reject buttons) and MUST get through; a photo/album that fails
+    // (bad image, hotlink block) is non-fatal — Telegram still can't attach buttons to
+    // a media group anyway. If the button-bearing send fails, fall back to a text-only
+    // message so the approval is never lost.
+    let delivered = false;
+    for (const s of sends) {
+      const res = await post(s.method, s.payload);
+      const carriesButtons = !!(s.payload as any).reply_markup;
+      if (res.ok) {
+        if (carriesButtons) delivered = true;
+      } else if (carriesButtons) {
+        const p = s.payload as any;
+        const fb = await post('sendMessage', { chat_id: telegramChatId, text: p.caption ?? p.text, reply_markup: p.reply_markup, disable_web_page_preview: true });
+        if (fb.ok) delivered = true;
+      }
     }
-    if (!res.ok) return json({ error: 'telegram_failed', detail: await res.text() }, 502);
+    if (!delivered) return json({ error: 'telegram_failed' }, 502);
     return json({ id: data.id });
   }
 

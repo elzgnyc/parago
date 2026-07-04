@@ -69,6 +69,14 @@ function isProductImageUrl(u) {
   return /^https?:\/\//i.test(u) && /(?:media-amazon|images-amazon|ssl-images-amazon)\.com\/images\/I\//i.test(u);
 }
 
+// Amazon encodes the requested size in the filename (e.g. ..._AC_AA180_.jpg = 180px).
+// The cart only renders a small thumb, so swap the size modifier for a larger square
+// (500px) — the guardian gets a crisp photo instead of a blurry 180px thumbnail. A URL
+// with no size modifier (already full-size) is left unchanged.
+function biggerAmazonImage(u) {
+  return u.replace(/\._[^./]*_\.(jpg|jpeg|png|webp)(\?.*)?$/i, '._SL500_.$1');
+}
+
 // Candidate URLs for one <img>, most-reliable first. At parse time (document_idle)
 // a lazy-loaded img's `src` is often still a spinner/placeholder, while Amazon puts
 // the real URL eagerly in data-a-dynamic-image (a JSON map of url->[w,h]) and
@@ -89,7 +97,7 @@ function imageCandidates(img) {
 function pickImageUrl(node) {
   const imgs = [node.querySelector('img.sc-product-image'), ...node.querySelectorAll('img')].filter(Boolean);
   for (const img of imgs) {
-    for (const u of imageCandidates(img)) if (isProductImageUrl(u)) return u;
+    for (const u of imageCandidates(img)) if (isProductImageUrl(u)) return biggerAmazonImage(u);
   }
   return node.getAttribute('data-image') || null;
 }

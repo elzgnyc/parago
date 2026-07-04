@@ -96,11 +96,24 @@ export function buildTelegramMessage({ chatId, total, items, link, token }) {
     ],
   };
 
-  const firstImg = shown.map((it) => it && it.image).find(isProductPhoto);
-  if (firstImg) {
-    return { method: 'sendPhoto', payload: { chat_id: chatId, photo: firstImg, caption: text, reply_markup } };
+  // One photo per item that has a usable product image (Telegram media group: 2..10).
+  const photos = shown.map((it) => it && it.image).filter(isProductPhoto).slice(0, 10);
+
+  // Returns an ordered list of Bot API calls the Edge Function sends in sequence.
+  // A media group cannot carry inline buttons, so for 2+ photos we send the album
+  // first and then a separate text message that holds the details + Approve/Reject.
+  if (photos.length >= 2) {
+    return {
+      sends: [
+        { method: 'sendMediaGroup', payload: { chat_id: chatId, media: photos.map((url) => ({ type: 'photo', media: url })) } },
+        { method: 'sendMessage', payload: { chat_id: chatId, text, reply_markup, disable_web_page_preview: true } },
+      ],
+    };
   }
-  return { method: 'sendMessage', payload: { chat_id: chatId, text, reply_markup, disable_web_page_preview: true } };
+  if (photos.length === 1) {
+    return { sends: [{ method: 'sendPhoto', payload: { chat_id: chatId, photo: photos[0], caption: text, reply_markup } }] };
+  }
+  return { sends: [{ method: 'sendMessage', payload: { chat_id: chatId, text, reply_markup, disable_web_page_preview: true } }] };
 }
 
 // Inline-button callback_data is 'a:<token>' (approve) or 'r:<token>' (reject).
