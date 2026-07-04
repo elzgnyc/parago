@@ -87,3 +87,67 @@ export function productDetailFields(meta) {
   if (meta.brand) out.brand = meta.brand;
   return Object.keys(out).length ? out : null;
 }
+
+// DOM-based extractor for a product (/dp/) page — used by the productDetail content
+// script, which runs IN the page and so has the full rendered DOM. This is far more
+// reliable than the regex path (real elements, no robot-check on a background fetch),
+// and Amazon's element IDs here (#feature-bullets, #acrCustomerReviewText,
+// #detailBullets_feature_div, product-details tables) have been stable for years.
+// Returns the same shape as parseProductMeta. Fully fail-soft.
+export function extractProductDetail(root = document) {
+  const txt = (el) => ((el && el.textContent) || '').replace(/\s+/g, ' ').trim();
+  const out = { rating: null, reviewCount: null, bullets: [], dateFirstAvailable: null, rank: null, brand: null };
+
+  for (const el of root.querySelectorAll('#acrPopover, #averageCustomerReviews .a-icon-alt, .a-icon-star .a-icon-alt, .a-icon-alt')) {
+    const t = (el.getAttribute && (el.getAttribute('title') || el.getAttribute('aria-label'))) || txt(el);
+    const m = String(t).match(/([0-5](?:\.\d+)?)\s*out of\s*5/i);
+    if (m) { const n = parseFloat(m[1]); if (n >= 0 && n <= 5) { out.rating = n; break; } }
+  }
+
+  const rc = root.querySelector('#acrCustomerReviewText, [data-hook="total-review-count"]');
+  if (rc) { const m = txt(rc).replace(/,/g, '').match(/\d{1,8}/); if (m) out.reviewCount = parseInt(m[0], 10); }
+
+  const seen = new Set();
+  for (const li of root.querySelectorAll('#feature-bullets .a-list-item, #feature-bullets li')) {
+    if (li.closest('.aok-hidden, [hidden]')) continue;
+    const t = txt(li);
+    if (t.length < 3 || t.length > 240 || /make sure this fits by entering|see more product details/i.test(t) || seen.has(t)) continue;
+    seen.add(t); out.bullets.push(t);
+    if (out.bullets.length >= 6) break;
+  }
+
+  const findLabel = (re) => {
+    // Detail bullets put the label + value in one <li> with no reliable colon between
+    // them, so strip the matched label and leading separators to get the value.
+    for (const li of root.querySelectorAll('#detailBullets_feature_div li, #detailBulletsWrapper_feature_div li')) {
+      const t = txt(li);
+      if (re.test(t)) { const v = t.replace(re, '').replace(/^[\s:：‎‏]+/, '').trim(); if (v) return v; }
+    }
+    for (const tr of root.querySelectorAll('#productDetails_detailBullets_sections1 tr, #productDetails_techSpec_section_1 tr, table.prodDetTable tr')) {
+      const th = tr.querySelector('th'), td = tr.querySelector('td');
+      if (th && td && re.test(txt(th))) { const v = txt(td); if (v) return v; }
+    }
+    return null;
+  };
+  out.dateFirstAvailable = findLabel(/date first available/i);
+  const rawRank = findLabel(/best sellers?\s*rank/i);
+  if (rawRank) { const m = rawRank.match(/#[\d,]+\s+in\s+[^#(]+/); out.rank = (m ? m[0] : rawRank).replace(/\s+/g, ' ').trim().slice(0, 70) || null; }
+
+  const bl = root.querySelector('#bylineInfo');
+  if (bl) { const t = txt(bl); if (t && t.length <= 80) out.brand = t; }
+  return out;
+}
+
+// ASIN for a product page: URL first, then a hidden input, then any [data-asin].
+export function productPageAsin(root = document) {
+  try {
+    const path = (root.location && root.location.pathname) || (typeof location !== 'undefined' ? location.pathname : '') || '';
+    const m = path.match(/\/(?:dp|gp\/product|gp\/aw\/d)\/([A-Z0-9]{10})/i);
+    if (m) return m[1].toUpperCase();
+  } catch (e) { /* no location */ }
+  const input = root.querySelector('#ASIN, input[name="ASIN"]');
+  if (input && /^[A-Z0-9]{10}$/i.test(input.value || '')) return input.value.toUpperCase();
+  const el = root.querySelector('[data-asin]');
+  const a = el && el.getAttribute('data-asin');
+  return a && /^[A-Z0-9]{10}$/i.test(a) ? a.toUpperCase() : null;
+}

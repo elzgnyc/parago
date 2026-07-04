@@ -1,6 +1,6 @@
 import { getSettings } from '../settings/storage.js';
 import { setLang } from '../i18n/i18n.js';
-import { parseCart } from '../lib/parseCart.js';
+import { parseCart, parseCheckoutInfo } from '../lib/parseCart.js';
 import { productDetailFields } from '../lib/parseProduct.js';
 import { shouldRequireApproval } from '../lib/guardianTrigger.js';
 import { isApprovedForTotal, recordApproval } from '../lib/approval.js';
@@ -46,14 +46,27 @@ function bgProductMeta(asin) {
 // time-bounded: a slow Amazon response must never hang checkout, so each lookup
 // races a timer; on timeout/error/no-asin the item passes through unchanged. In
 // vitest (no chrome mock) this is a pure pass-through so existing tests still pass.
+function loadProductDetailCache() {
+  return new Promise((resolve) => {
+    try { chrome.storage.local.get({ parago_product_details: {} }, (d) => resolve(d.parago_product_details || {})); }
+    catch (e) { resolve({}); }
+  });
+}
+
 export async function enrichItems(items, { timeoutMs = 2000 } = {}) {
   if (!Array.isArray(items) || !items.length) return items || [];
   if (typeof chrome === 'undefined' || !chrome.runtime || !chrome.runtime.sendMessage) return items;
+  const cache = await loadProductDetailCache(); // capture-on-view details (full DOM), keyed by ASIN
   return Promise.all(items.map(async (item) => {
     if (!item || !item.asin) return item;
-    const timeout = new Promise((resolve) => setTimeout(() => resolve(null), timeoutMs));
-    const meta = await Promise.race([bgProductMeta(item.asin), timeout]);
-    if (!meta) return item; // timed out: leave unchanged
+    // Prefer the detail captured when the shopper VIEWED the product (reliable, full DOM);
+    // fall back to the background /dp/ fetch (regex, may hit a robot check) only if absent.
+    let meta = cache[item.asin] || null;
+    if (!meta) {
+      const timeout = new Promise((resolve) => setTimeout(() => resolve(null), timeoutMs));
+      meta = await Promise.race([bgProductMeta(item.asin), timeout]);
+    }
+    if (!meta) return item; // nothing found: leave unchanged
     // Prefer the product page's values, but keep the cart-line rating when the
     // background fetch came back empty (e.g. a robot-check page) rather than nulling it.
     const details = productDetailFields(meta);
@@ -173,7 +186,8 @@ export async function engage(settings, parsed) {
     req = pickPendingRequest(pending, parsed.total);
     if (!req) {
       const enrichedItems = await enrichItems(parsed.items);
-      const id = await relay.submitRequest({ total: parsed.total, items: enrichedItems, breakdown: parsed.breakdown });
+      const ci = parseCheckoutInfo(document) || {};
+      const id = await relay.submitRequest({ total: parsed.total, items: enrichedItems, breakdown: parsed.breakdown, shipTo: ci.shipTo, payment: ci.payment });
       req = await relay.getRequest(id);
     }
   } catch (e) {
@@ -378,7 +392,8 @@ async function onPlaceOrderPress(ev) {
     const outstanding = await getOutstanding();
     if (!outstanding.some((o) => totalsMatch(o.total, total))) {
       const enriched = await enrichItems(items);
-      const id = await relay.submitRequest({ total, items: enriched, breakdown: parsed.breakdown });
+      const ci = parseCheckoutInfo(document) || {};
+      const id = await relay.submitRequest({ total, items: enriched, breakdown: parsed.breakdown, shipTo: ci.shipTo, payment: ci.payment });
       await saveOutstanding([...outstanding, { id, total, createdAt: Date.now() }]);
     }
   } catch (e) {

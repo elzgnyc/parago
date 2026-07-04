@@ -1,5 +1,37 @@
 import { describe, it, expect } from 'vitest';
-import { parseProductMeta } from '../src/lib/parseProduct.js';
+import { parseProductMeta, extractProductDetail, productPageAsin } from '../src/lib/parseProduct.js';
+
+// The DOM extractor runs in a product-page content script (full rendered DOM) — the
+// reliable path for the guardian's Details. Verify against Amazon's stable /dp/ IDs.
+describe('extractProductDetail (DOM)', () => {
+  it('pulls rating, count, bullets, brand, date-first-available and rank', () => {
+    document.body.innerHTML = `
+      <a id="bylineInfo">Brand: MAREE</a>
+      <span id="acrPopover" title="4.6 out of 5 stars"></span>
+      <span id="acrCustomerReviewText">1,204 ratings</span>
+      <div id="feature-bullets"><ul>
+        <li><span class="a-list-item">100% natural batana oil</span></li>
+        <li><span class="a-list-item">Cold-pressed in Honduras</span></li>
+        <li><span class="a-list-item">Make sure this fits by entering your model number.</span></li>
+      </ul></div>
+      <div id="detailBullets_feature_div"><ul>
+        <li><span class="a-text-bold">Date First Available</span> <span>June 1, 2024</span></li>
+        <li><span class="a-text-bold">Best Sellers Rank</span> <span>#1,234 in Beauty (See Top 100)</span></li>
+      </ul></div>`;
+    const d = extractProductDetail(document);
+    expect(d.rating).toBe(4.6);
+    expect(d.reviewCount).toBe(1204);
+    expect(d.bullets).toEqual(['100% natural batana oil', 'Cold-pressed in Honduras']); // filler dropped
+    expect(d.brand).toBe('Brand: MAREE');
+    expect(d.dateFirstAvailable).toBe('June 1, 2024');
+    expect(d.rank).toBe('#1,234 in Beauty');
+  });
+
+  it('productPageAsin reads the ASIN from a hidden input', () => {
+    document.body.innerHTML = '<input id="ASIN" value="B0FRSGJVM6">';
+    expect(productPageAsin(document)).toBe('B0FRSGJVM6');
+  });
+});
 
 // parseProductMeta runs in the MV3 service worker (no DOMParser), so it parses an
 // HTML STRING with regex. These cover a normal product page, a CAPTCHA/robot wall,
