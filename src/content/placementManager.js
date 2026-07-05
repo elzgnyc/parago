@@ -69,6 +69,7 @@ export async function runPlacementCompletion({
     if (rec.status === 'placing') {
       if (detectOrderConfirmation(document)) {
         await store.patch(id, { status: 'placed', placedAt: now() });
+        try { await relay.reportPlaced?.(id); } catch (e) { /* best effort: guardian ping */ }
         showConfirmed();
       } else if (rec.placingAt && (now() - rec.placingAt) > PLACING_TIMEOUT_MS) {
         await store.patch(id, { status: 'failed', lastError: 'no_confirmation' });

@@ -23,3 +23,9 @@ verify_jwt = false
 # from setWebhook (checked in the function), not a Supabase JWT.
 [functions.telegram-webhook]
 verify_jwt = false
+
+# The extension POSTs here when an approved order actually completes (confirmation page),
+# so the guardian gets an "Order placed" ping. Public, idempotent, notifies only the
+# request's already-configured chat.
+[functions.order-placed]
+verify_jwt = false

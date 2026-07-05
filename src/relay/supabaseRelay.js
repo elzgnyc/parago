@@ -68,6 +68,15 @@ export class SupabaseRelay {
     return { id: body.id, status: body.status, total: body.total, decidedAt: body.decidedAt, items: [] };
   }
 
+  // Tell the backend an approved order actually completed, so the guardian gets an
+  // "Order placed" ping. Best-effort + idempotent server-side (placed_at).
+  async reportPlaced(id) {
+    if (!id) return;
+    await this.send(`${this.baseUrl}/order-placed`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }),
+    });
+  }
+
   async listPending() {
     const map = await this.store.get();
     const out = [];
