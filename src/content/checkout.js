@@ -1,6 +1,6 @@
 import { getSettings, resolveTimezone } from '../settings/storage.js';
 import { setLang } from '../i18n/i18n.js';
-import { parseCart, parseCheckoutInfo } from '../lib/parseCart.js';
+import { parseCart, parseCheckoutInfo, parseCheckoutGifts } from '../lib/parseCart.js';
 import { productDetailFields } from '../lib/parseProduct.js';
 import { shouldRequireApproval } from '../lib/guardianTrigger.js';
 import { isApprovedForTotal, recordApproval } from '../lib/approval.js';
@@ -83,14 +83,25 @@ export async function enrichItems(items, { timeoutMs = 2000 } = {}) {
   }));
 }
 
-// Gift visibility is opt-in (settings.showGift, default off): unless it's on, strip the
-// per-item gift flag before the request leaves the device, so the approver never sees a
-// gift marking the shopper didn't choose to share.
-function applyGiftVisibility(items, settings) {
-  if (settings && settings.showGift) return items || [];
-  return (items || []).map((it) => {
-    if (it && it.gift) { const { gift, ...rest } = it; return rest; }
-    return it;
+function itemImageId(u) {
+  const m = String(u || '').match(/\/images\/I\/([^./]+)\./);
+  return m ? m[1] : null;
+}
+// Gift visibility is opt-in (settings.showGift, default off). When ON, read which lines the
+// shopper marked as a gift on the CHECKOUT page and flag the matching items (by title or
+// image id). When OFF, strip any gift flag before the request leaves the device, so the
+// approver never sees a gift marking the shopper didn't choose to share.
+function applyGifts(items, settings, root) {
+  const list = items || [];
+  if (!settings || !settings.showGift) {
+    return list.map((it) => { if (it && it.gift) { const { gift, ...rest } = it; return rest; } return it; });
+  }
+  let gifts = { titles: new Set(), imageIds: new Set() };
+  try { gifts = parseCheckoutGifts(root); } catch (e) { /* off-checkout / no DOM */ }
+  if (!gifts.titles.size && !gifts.imageIds.size) return list;
+  return list.map((it) => {
+    const gifted = it && ((it.title && gifts.titles.has(String(it.title).toLowerCase())) || gifts.imageIds.has(itemImageId(it.image)));
+    return gifted ? { ...it, gift: true } : it;
   });
 }
 
@@ -208,7 +219,7 @@ export async function engage(settings, parsed) {
     const pending = await relay.listPending();
     req = pickPendingRequest(pending, parsed.total);
     if (!req) {
-      const enrichedItems = applyGiftVisibility(await enrichItems(parsed.items), settings);
+      const enrichedItems = applyGifts(await enrichItems(parsed.items), settings, document);
       const ci = parseCheckoutInfo(document) || {};
       const id = await relay.submitRequest({ total: parsed.total, items: enrichedItems, breakdown: parsed.breakdown, shipTo: ci.shipTo, payment: ci.payment });
       req = await relay.getRequest(id);
@@ -414,7 +425,7 @@ async function onPlaceOrderPress(ev) {
     const { items } = await bestKnownPurchase(document);
     const outstanding = await getOutstanding();
     if (!outstanding.some((o) => totalsMatch(o.total, total))) {
-      const enriched = applyGiftVisibility(await enrichItems(items), armedSettings);
+      const enriched = applyGifts(await enrichItems(items), armedSettings, document);
       const ci = parseCheckoutInfo(document) || {};
       const now = Date.now();
       const id = await relay.submitRequest({ total, items: enriched, breakdown: parsed.breakdown, shipTo: ci.shipTo, payment: ci.payment });

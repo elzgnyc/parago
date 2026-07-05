@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { parseCart, parseCartItems, parseCartTotal, parseDeliveryExpiry, parseOrderBreakdown, parseCheckoutInfo, parseItemGift } from '../src/lib/parseCart.js';
+import { parseCart, parseCartItems, parseCartTotal, parseDeliveryExpiry, parseOrderBreakdown, parseCheckoutInfo, parseItemGift, parseCheckoutGifts } from '../src/lib/parseCart.js';
 
 afterEach(() => { document.body.innerHTML = ''; });
 
@@ -568,5 +568,30 @@ describe('parseItemGift (best-effort gift marking)', () => {
   it('is false for a normal line (unchecked box, no gift text)', () => {
     document.body.innerHTML = `<div id="c"><input type="checkbox" name="giftFlag"> Add gift options</div>`;
     expect(parseItemGift(document.getElementById('c'))).toBe(false);
+  });
+});
+
+describe('parseCheckoutGifts (marked gifts on the SPC checkout page)', () => {
+  it('collects title + image id for lines whose gift link says "Change/Edit gift options"', () => {
+    document.body.innerHTML = `
+      <div class="lineitem-container">
+        <img src="https://m.media-amazon.com/images/I/81rRSIKm2TL._AC_AA135_.jpg">
+        <span id="checkout-item-block-item-primary-title-XYZ" class="lineitem-title-text">C4 Energy Drink 12 Pack</span>
+        <a id="checkout-item-block-gift-options-link-XYZ">Change gift options</a>
+      </div>
+      <div class="lineitem-container">
+        <img src="https://m.media-amazon.com/images/I/71PLAINxxxL._AC_AA135_.jpg">
+        <span class="lineitem-title-text">Not A Gift Item</span>
+        <a id="checkout-item-block-gift-options-link-ABC">Add gift options</a>
+      </div>`;
+    const g = parseCheckoutGifts(document);
+    expect([...g.titles]).toEqual(['c4 energy drink 12 pack']); // only the "Change..." line
+    expect([...g.imageIds]).toEqual(['81rRSIKm2TL']);
+  });
+  it('is empty off-checkout (no gift links)', () => {
+    document.body.innerHTML = '<div>nothing</div>';
+    const g = parseCheckoutGifts(document);
+    expect(g.titles.size).toBe(0);
+    expect(g.imageIds.size).toBe(0);
   });
 });

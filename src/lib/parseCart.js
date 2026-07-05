@@ -284,6 +284,27 @@ export function parseItemGift(node) {
   return /\bthis (?:will be|is) a gift\b/i.test(node.textContent || '');
 }
 
+// Gifts are set on the CHECKOUT (SPC) page, not the cart, so read them there and match
+// back to the cart-snapshot items. Each line item is a container whose gift-options link
+// text flips from "Add gift options" to "Change/Edit gift options" once a gift is set.
+// Returns the gifted lines keyed by normalized title AND image id (either can match an
+// item). Verified against a real gifted checkout (2026-07). Empty off-checkout.
+export function parseCheckoutGifts(root = document) {
+  const titles = new Set(), imageIds = new Set();
+  for (const link of root.querySelectorAll('a[id*="gift-options-link" i]')) {
+    if (!/\b(?:change|edit)\b[^<]*gift option/i.test(link.textContent || '')) continue; // "Add..." = not gifted
+    const block = link.closest('.lineitem-container, [class*="lineitem" i], .a-box');
+    if (!block) continue;
+    const titleEl = block.querySelector('[id*="item-primary-title" i], .lineitem-title-text, [class*="title" i]');
+    const t = titleEl && titleEl.textContent.replace(/\s+/g, ' ').trim();
+    if (t) titles.add(t.toLowerCase());
+    const img = block.querySelector('img[src*="/images/I/"]');
+    const id = img && ((img.getAttribute('src') || '').match(/\/images\/I\/([^./]+)\./) || [])[1];
+    if (id) imageIds.add(id);
+  }
+  return { titles, imageIds };
+}
+
 export function parseCartItems(root = document) {
   const searchRoot = activeScope(root);
 
