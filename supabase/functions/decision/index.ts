@@ -136,5 +136,6 @@ Deno.serve(async (req) => {
     payment: row.payment ?? null,
     timezone: row.timezone ?? null,
     theme: row.theme ?? null,
+    appButton: row.app_button ?? null,
   });
 });

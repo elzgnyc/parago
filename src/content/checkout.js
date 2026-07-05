@@ -116,6 +116,7 @@ function buildRelay(settings) {
       githubUsername: settings.githubUsername || null,
       timezone: resolveTimezone(settings),
       theme: settings.theme || null,
+      appButton: settings.appButton !== false,
     });
   }
   return new MockRelay();

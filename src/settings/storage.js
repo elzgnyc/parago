@@ -13,6 +13,7 @@ export const DEFAULTS = {
   guardianMode: 'off',  // 'off' | 'always' | 'over_limit'
   autoPlace: false,     // false = unlock-only (shopper clicks Place order after approval); true = Parago places it automatically once approved
   showGift: false,      // show the approver when an item is marked as a gift (only if marked); default off
+  appButton: true,      // show the per-item "Open in Amazon app" button on the approval page; default on
   guardianLimit: 50,    // approval required above this total when over_limit
   guardianName: '',     // label for whoever approves
   deliveryMethod: 'telegram', // how the approver is reached: 'email' | 'telegram'. Per-method config below persists independently, so switching never clears the other.
