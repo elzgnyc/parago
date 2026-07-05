@@ -71,6 +71,21 @@
   .qty-input{width:52px;padding:3px 6px;border:1.5px solid var(--line);border-radius:6px;
     background:var(--surface);color:var(--ink);font:inherit;font-size:.86rem;text-align:center}
   .qty-x{color:var(--ink-soft)}
+  /* Editing the cart is opt-in: checkboxes + editable quantities appear only after the
+     guardian taps "Edit items", so they never change the order by accident. */
+  .items-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:14px 2px 2px}
+  .items-head .lbl{font-size:.85rem;color:var(--ink-soft);font-weight:700}
+  .edit-toggle{flex:0 0 auto;width:auto;font:inherit;font-size:.82rem;font-weight:700;color:var(--accent);
+    background:none;border:1.5px solid var(--accent);border-radius:999px;padding:5px 14px;cursor:pointer}
+  .edit-toggle:hover{background:var(--accent);color:#fff}
+  .items:not(.editing) .sel-check{display:none}
+  .items:not(.editing) .qty-input{border-color:transparent;background:transparent;padding-left:0;
+    padding-right:0;width:auto;min-width:1.4rem;text-align:left}
+  /* Tap a photo to view it large. */
+  .thumb{cursor:zoom-in}
+  .lightbox{position:fixed;inset:0;background:rgba(0,0,0,.85);display:flex;align-items:center;
+    justify-content:center;z-index:100;padding:20px;cursor:zoom-out}
+  .lightbox img{max-width:100%;max-height:100%;object-fit:contain;border-radius:8px}
   li.excluded{opacity:.42}
   li.excluded .it-title{text-decoration:line-through}
   .num{flex:0 0 auto;width:20px;height:20px;border-radius:50%;background:var(--accent-tint);
@@ -164,6 +179,18 @@
     return d.toLocaleString('en-US', opts);
   }
   function amazonApp(asin){ return asin ? 'com.amazon.mobile.shopping.web://www.amazon.com/dp/' + encodeURIComponent(asin) : null; }
+  // Whether to show the per-item "Open in Amazon app" button (a shopper setting, default on).
+  var SHOW_APP_BUTTON = true;
+  // Ask Amazon's CDN for a larger render of the same photo (the size is encoded in the
+  // filename, e.g. ._SL500_.) and show it full-screen; tap anywhere to close.
+  function biggerImage(u){ return String(u).replace(/\._[^./]*_\.(jpg|jpeg|png|webp)(\?.*)?$/i, '._SL1200_.$1'); }
+  function openLightbox(u){
+    var ov = elt('div', { cls:'lightbox' });
+    var im = elt('img'); im.alt = ''; im.referrerPolicy = 'no-referrer'; im.src = u;
+    ov.appendChild(im);
+    ov.addEventListener('click', function(){ ov.remove(); });
+    document.body.appendChild(ov);
+  }
 
   // Only real product photos (Amazon serves them under /images/I/); reject inline
   // placeholders and loading spinners so the guardian never sees an infinite wheel.
@@ -229,6 +256,7 @@
       im.referrerPolicy = 'no-referrer';         // set before src: don't let Amazon hotlink-block it
       im.src = img;
       im.onerror = function(){ im.remove(); };   // broken URL → drop it, never a spinner
+      im.addEventListener('click', function(){ openLightbox(biggerImage(img)); });
       li.appendChild(im);
     }
 
@@ -316,6 +344,12 @@
       body.appendChild(det);
     }
 
+    // Explicit "Open in Amazon app" button (the guardian may want to open/copy it on
+    // their phone). Same deep link the title uses; hidden if the shopper turned it off.
+    if (SHOW_APP_BUTTON && it && it.asin){
+      body.appendChild(elt('a', { cls:'applink', text:'Open in Amazon app', href: amazonApp(it.asin) }));
+    }
+
     li.appendChild(body);
     return li;
   }
@@ -346,6 +380,15 @@
   // The guardian can uncheck items or change quantities — "the cart is good except
   // these". Each item row registers here; recomputeTotal keeps the Approved total live.
   var GUARDIAN_SELECTION = [];
+  // Editing is opt-in (see .items-head). Off by default: quantities are read-only and the
+  // keep/drop checkboxes are hidden, so the guardian can't change the order by accident.
+  var EDIT_MODE = false;
+  function applyEditMode(ul){
+    if (EDIT_MODE) ul.classList.add('editing'); else ul.classList.remove('editing');
+    GUARDIAN_SELECTION.forEach(function(s){
+      if (s.qtyInput) s.qtyInput.disabled = !EDIT_MODE || (s.checkbox && !s.checkbox.checked);
+    });
+  }
   function itemQty(s){
     var q = s.qtyInput ? parseInt(s.qtyInput.value, 10) : s.origQty;
     return (isFinite(q) && q > 0) ? Math.round(q) : 0;
@@ -396,9 +439,34 @@
     app.appendChild(elt('p', { cls:'when', text: whenFull(data.createdAt) }));
 
     var items = Array.isArray(data.items) ? data.items : [];
+    SHOW_APP_BUTTON = data.appButton !== false;
 
-    // Full order-cost breakdown (Items, Shipping, Tax, fees, Order total) when captured
-    // at checkout; otherwise a single Total. Discounts are stored negative.
+    // Ship-to + payment (partial only) captured at checkout — context up top, before the
+    // items, so the guardian sees where it's going and which card (no sensitive detail).
+    if (data.shipTo || data.payment){
+      var ship = elt('div', { cls:'shipinfo' });
+      if (data.shipTo){ var s1 = elt('span'); s1.appendChild(document.createTextNode('Ship to ')); s1.appendChild(elt('b', { text: String(data.shipTo) })); ship.appendChild(s1); }
+      if (data.payment){ var s2 = elt('span'); s2.appendChild(document.createTextNode('Pay ')); s2.appendChild(elt('b', { text: String(data.payment) })); ship.appendChild(s2); }
+      app.appendChild(ship);
+    }
+
+    // Item list, with an opt-in "Edit items" toggle above it.
+    var ul = elt('ul', { cls:'items' });
+    items.forEach(function(it, i){ ul.appendChild(itemRow(it || {}, i)); });
+    var head = elt('div', { cls:'items-head' });
+    head.appendChild(elt('span', { cls:'lbl', text: items.length + (items.length === 1 ? ' item' : ' items') }));
+    var editBtn = elt('button', { cls:'edit-toggle', text:'Edit items' });
+    editBtn.addEventListener('click', function(){
+      EDIT_MODE = !EDIT_MODE; editBtn.textContent = EDIT_MODE ? 'Done' : 'Edit items'; applyEditMode(ul);
+    });
+    head.appendChild(editBtn);
+    app.appendChild(head);
+    app.appendChild(ul);
+    applyEditMode(ul); // start read-only (quantities locked, checkboxes hidden)
+
+    // Order-cost breakdown (Items, Shipping, Tax, fees, Order total) when captured at
+    // checkout, else a single Total — at the BOTTOM by the Approve/Reject buttons, like
+    // Amazon's order summary next to "Place your order". Discounts are stored negative.
     var bd = Array.isArray(data.breakdown) ? data.breakdown : null;
     if (bd && bd.length){
       var bdEl = elt('div', { cls:'breakdown' });
@@ -425,18 +493,6 @@
     var cntS = elt('span'); cntS.id = 'approvedCount'; appr.appendChild(cntS);
     app.appendChild(appr);
 
-    // Ship-to + payment (partial only) captured at checkout, so the guardian sees where
-    // it's going and which card without any full/sensitive detail.
-    if (data.shipTo || data.payment){
-      var ship = elt('div', { cls:'shipinfo' });
-      if (data.shipTo){ var s1 = elt('span'); s1.appendChild(document.createTextNode('Ship to ')); s1.appendChild(elt('b', { text: String(data.shipTo) })); ship.appendChild(s1); }
-      if (data.payment){ var s2 = elt('span'); s2.appendChild(document.createTextNode('Pay ')); s2.appendChild(elt('b', { text: String(data.payment) })); ship.appendChild(s2); }
-      app.appendChild(ship);
-    }
-
-    var ul = elt('ul', { cls:'items' });
-    items.forEach(function(it, i){ ul.appendChild(itemRow(it || {}, i)); });
-    app.appendChild(ul);
     recomputeTotal();  // reflect the full cart, then update as the guardian edits
     tickDeadlines();   // paint countdowns immediately, then the interval keeps them live
 
@@ -466,7 +522,12 @@
           var modTag = (st === 'approved' && modified) ? ' (modified)' : '';
           clear(app);
           app.appendChild(elt('div', { cls:'done-badge ' + (st==='approved'?'is-approved':'is-rejected'), text: word + modTag }));
-          app.appendChild(elt('p', { cls:'when', text:word + modTag + ' ' + whenFull() + '. You can close this page.' }));
+          // Approve does not mean "bought" yet: the shopper's browser still has to place
+          // the order. Say so, and promise a follow-up once it is actually ordered.
+          var sub = (st === 'approved')
+            ? word + modTag + ' ' + whenFull() + '. Parago is placing the order in the shopper\'s browser now. You\'ll get a confirmation once it\'s actually ordered.'
+            : word + ' ' + whenFull() + '. Nothing will be bought. You can close this page.';
+          app.appendChild(elt('p', { cls:'when', text: sub }));
         } else if (res && res.reason && REASONS[res.reason]){
           message(REASONS[res.reason]);
         } else {
