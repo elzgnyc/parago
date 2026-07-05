@@ -409,6 +409,38 @@ label.is-changed::after, .field-label.is-changed::after {
 .lang-row label { font-weight: 600; }
 .lang-select { width: auto; min-width: 160px; }
 
+/* Custom dropdown: a themed button + popover list that replaces the native <select>
+   popup (which can't be styled). The real <select> stays in the DOM (hidden) as the
+   value source; options.js drives it as before and the button mirrors it. */
+.cselect { position: relative; display: inline-block; min-width: 170px; }
+.cselect > select { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.cselect-btn {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%;
+  font: inherit; color: var(--ink); background: var(--surface);
+  border: 1.5px solid var(--line); border-radius: var(--radius-sm);
+  padding: 9px 12px; cursor: pointer; text-align: left;
+  transition: border-color 0.15s;
+}
+.cselect-btn:hover, .cselect-btn[aria-expanded="true"] { border-color: var(--accent); }
+.cselect-chev { color: var(--ink-soft); font-size: 0.8em; flex: 0 0 auto; }
+.cselect-list {
+  position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 40;
+  background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--radius-sm);
+  box-shadow: var(--shadow); padding: 4px; max-height: 280px; overflow: auto;
+}
+.cselect-filter {
+  width: 100%; font: inherit; color: var(--ink); background: var(--bg);
+  border: 1px solid var(--line); border-radius: var(--radius-sm);
+  padding: 7px 10px; margin-bottom: 4px; position: sticky; top: 0;
+}
+.cselect-opt {
+  padding: 8px 10px; border-radius: 7px; cursor: pointer; color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cselect-opt:hover { background: var(--accent-tint); }
+.cselect-opt.is-sel { background: var(--accent); color: #fff; font-weight: 600; }
+.cselect-opt.is-hidden { display: none; }
+
 /* Slide-in when a conditionally-shown control appears (method fields, spending
    limit, advanced controls, telegram states). Plays on display none -> shown. */
 @keyframes pgSlideIn {

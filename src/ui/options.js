@@ -28,6 +28,88 @@ function populateTimezones() {
     sel.appendChild(o);
   }
 }
+// ── Custom dropdowns ──────────────────────────────────────────────────────────────
+// The native <select> popup can't be themed, so we hide the real select (keeping it as
+// the value source load()/save() read and write) and drive a themed button + list that
+// mirror it. A filter box appears for long lists (e.g. the time-zone list) so we don't
+// lose type-to-search. dispatching 'change' on pick keeps the existing save() listener.
+const enhancedSelects = [];
+function enhanceSelect(select) {
+  if (!select || select.dataset.enhanced) return;
+  select.dataset.enhanced = '1';
+  const wrap = document.createElement('div');
+  wrap.className = 'cselect';
+  select.parentNode.insertBefore(wrap, select);
+  wrap.appendChild(select);
+
+  const btn = document.createElement('button');
+  btn.type = 'button'; btn.className = 'cselect-btn';
+  btn.setAttribute('aria-haspopup', 'listbox'); btn.setAttribute('aria-expanded', 'false');
+  const label = document.createElement('span'); label.className = 'cselect-label';
+  const chev = document.createElement('span'); chev.className = 'cselect-chev'; chev.setAttribute('aria-hidden', 'true'); chev.textContent = '▾';
+  btn.append(label, chev);
+
+  const list = document.createElement('div');
+  list.className = 'cselect-list'; list.setAttribute('role', 'listbox'); list.hidden = true;
+
+  const filter = document.createElement('input');
+  filter.className = 'cselect-filter'; filter.type = 'text'; filter.setAttribute('aria-label', 'Filter');
+
+  wrap.append(btn, list);
+
+  const syncLabel = () => {
+    const o = select.options[select.selectedIndex];
+    label.textContent = o ? o.textContent : '';
+  };
+  const build = () => {
+    list.textContent = '';
+    const many = select.options.length > 12;
+    if (many) { filter.value = ''; list.appendChild(filter); }
+    for (const opt of select.options) {
+      const it = document.createElement('div');
+      it.className = 'cselect-opt' + (opt.value === select.value ? ' is-sel' : '');
+      it.setAttribute('role', 'option'); it.textContent = opt.textContent; it.dataset.value = opt.value;
+      it.addEventListener('click', () => {
+        select.value = opt.value;
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+        syncLabel(); close(); btn.focus();
+      });
+      list.appendChild(it);
+    }
+  };
+  const applyFilter = () => {
+    const q = filter.value.trim().toLowerCase();
+    for (const it of list.querySelectorAll('.cselect-opt')) {
+      it.classList.toggle('is-hidden', q && !it.textContent.toLowerCase().includes(q));
+    }
+  };
+  const open = () => {
+    build(); list.hidden = false; btn.setAttribute('aria-expanded', 'true');
+    const sel = list.querySelector('.cselect-opt.is-sel');
+    if (sel) sel.scrollIntoView({ block: 'nearest' });
+    if (select.options.length > 12) filter.focus();
+  };
+  function close() { list.hidden = true; btn.setAttribute('aria-expanded', 'false'); }
+
+  filter.addEventListener('input', applyFilter);
+  filter.addEventListener('click', (e) => e.stopPropagation());
+  btn.addEventListener('click', (e) => { e.stopPropagation(); if (list.hidden) open(); else close(); });
+  btn.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') close();
+    else if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown') { e.preventDefault(); open(); }
+  });
+  document.addEventListener('click', (e) => { if (!wrap.contains(e.target)) close(); });
+
+  syncLabel();
+  enhancedSelects.push({ select, syncLabel });
+}
+function enhanceSelects() {
+  enhanceSelect(document.getElementById('lang'));
+  enhanceSelect(document.getElementById('timezone'));
+}
+// After load()/reset writes select.value directly (no 'change' event), refresh the labels.
+function refreshSelects() { for (const r of enhancedSelects) r.syncLabel(); }
+
 // Settings driven by segmented controls instead of inputs/selects.
 const boolSegs = ['hideSponsored', 'flagLowRating', 'flagFewRatings', 'flagNoReviews', 'flagNonPrime', 'hoverReveal', 'devMode'];
 const segKeys = ['deliveryMethod', 'guardianMode', 'mode', ...boolSegs];
@@ -333,6 +415,7 @@ function load(settings) {
   for (const k of boolSegs) setSeg(k, settings[k]);
   setLang(settings.lang);
   applyI18n();
+  refreshSelects();
   applyTheme(settings.theme);
   applyAdvancedVisibility(settings.advancedMode);
   applyMethodVisibility(settings.deliveryMethod || 'email');
@@ -387,6 +470,7 @@ async function save() {
   applyGuardianModeVisibility(patch.guardianMode);
   setLang(patch.lang);
   applyI18n();
+  refreshSelects();
   flash();
   updateDirty();
   markChanged();
@@ -461,6 +545,7 @@ async function main() {
   buildSegs();
   populateTimezones();
   load(settings);
+  enhanceSelects(); // themed dropdowns over the (now-populated) native selects
   for (const id of fields) {
     document.getElementById(id).addEventListener('change', save);
   }
