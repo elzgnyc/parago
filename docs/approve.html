@@ -88,6 +88,11 @@
   .items:not(.editing) .sel-check{display:none}
   .items:not(.editing) .qty-input{border-color:transparent;background:transparent;padding-left:0;
     padding-right:0;width:auto;min-width:1.4rem;text-align:left}
+  .remove-item{font:inherit;font-size:.78rem;font-weight:700;color:var(--red);background:none;
+    border:0;cursor:pointer;padding:2px 6px;text-decoration:underline}
+  .remove-item:hover{filter:brightness(.85)}
+  .items:not(.editing) .remove-item{display:none}   /* only while editing */
+  li.excluded .remove-item{display:none}            /* already removed; the checkbox adds it back */
   /* Tap a photo to view it large. */
   .thumb{cursor:zoom-in}
   .lightbox{position:fixed;inset:0;background:rgba(0,0,0,.85);display:flex;align-items:center;
@@ -335,8 +340,9 @@
     titleRow.appendChild(check);
     titleRow.appendChild(elt('span', { cls:'num', text:String(i + 1) }));
     // Title opens the Amazon APP (already signed in on a phone) — no browser login wall.
+    // Gated on the SAME setting as the button: when off, the title is plain text (no app link).
     var titleEl = elt('span', { cls:'it-title' });
-    var appHref = amazonApp(it && it.asin);
+    var appHref = SHOW_APP_BUTTON ? amazonApp(it && it.asin) : null;
     if (appHref){ var a = elt('a', { text: cleanTitle(it && it.title) }); a.href = appHref; titleEl.appendChild(a); }
     else titleEl.appendChild(document.createTextNode(cleanTitle(it && it.title)));
     titleRow.appendChild(titleEl);
@@ -353,6 +359,16 @@
       qtyInput.setAttribute('aria-label', 'Quantity');
       facts.appendChild(qtyInput);
     }
+    // In edit mode, a Remove button next to the quantity drops the item (clearer than
+    // typing 0). Hidden unless editing, and once removed (the checkbox re-adds it).
+    var rmBtn = elt('button', { cls:'remove-item', text:'Remove' });
+    rmBtn.type = 'button';
+    rmBtn.addEventListener('click', function(){
+      check.checked = false; li.className = 'excluded';
+      if (qtyInput) qtyInput.disabled = true;
+      recomputeTotal();
+    });
+    facts.appendChild(rmBtn);
 
     // Register for the live Approved total + the decision payload, and wire the controls.
     var sel = { asin: it && it.asin, price: (typeof it.price === 'number') ? it.price : null, origQty: origQty, checkbox: check, qtyInput: qtyInput };
@@ -653,7 +669,7 @@
     var r = resolveTheme(CUR_THEME), darkActive = (r === 'dark' || r === 'amoled');
     lb.classList.toggle('active', r === 'light');
     db.classList.toggle('active', darkActive);
-    db.textContent = (CUR_THEME === 'amoled') ? 'AMOLED' : 'Dark';
+    db.textContent = (CUR_THEME === 'amoled') ? 'Dark (AMOLED)' : 'Dark';
   }
   function setTheme(t, persist){
     CUR_THEME = t; applyThemeAttr(t); paintThemeSeg();

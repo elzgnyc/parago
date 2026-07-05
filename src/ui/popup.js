@@ -136,14 +136,15 @@ async function main() {
   const power = document.getElementById('power');
   power.addEventListener('change', togglePower);
   renderPower(settings);
-  // Developer mode: expose the "Send test notification" preview button, but ONLY when the
-  // active tab is an Amazon page (the toast previews the on-Amazon guardian notification).
+  // The "Preview toast" button appears only when ALL hold: Advanced mode on, Developer mode
+  // on, and the active tab is an Amazon page (the toast previews the on-Amazon notification).
   const onAmazon = await activeTabIsAmazon();
-  toggleDevSection(settings.devMode && onAmazon);
+  const showDev = (s) => toggleDevSection(!!(s.advancedMode && s.devMode && onAmazon));
+  showDev(settings);
   const devBtn = document.getElementById('devToastBtn');
   if (devBtn) devBtn.addEventListener('click', showTestToast);
   // Reflect changes made elsewhere (e.g. the Options page) while the popup is open.
-  onSettingsChanged(() => getSettings().then((s) => { renderPower(s); applyTheme(s.theme); toggleDevSection(s.devMode && onAmazon); }));
+  onSettingsChanged(() => getSettings().then((s) => { renderPower(s); applyTheme(s.theme); showDev(s); }));
   document.getElementById('openSettings').addEventListener('click', () => {
     chrome.runtime.openOptionsPage();
   });
