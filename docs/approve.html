@@ -102,7 +102,11 @@
   .it-title a:hover{color:var(--accent);text-decoration:underline}
   .it-facts{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center;margin-top:6px;font-size:.86rem;color:var(--ink-soft)}
   .it-facts .price{color:var(--red);font-weight:700;font-family:var(--font-num);font-variant-numeric:tabular-nums}
-  .it-facts .stars{color:var(--orange);letter-spacing:1px}
+  /* Star rating as a clipped overlay: grey stars underneath, orange stars on top clipped
+     to (rating/5)%, so a 4.6 shows a real partial star, not a literal "1/2". */
+  .it-facts .stars{position:relative;display:inline-block;color:var(--line);letter-spacing:1px;line-height:1;white-space:nowrap}
+  .it-facts .stars .fill{position:absolute;left:0;top:0;overflow:hidden;color:var(--orange);white-space:nowrap}
+  .it-facts .rating-num{color:var(--ink-soft)}
   .it-facts,.qty-input,.approving-amt,.deadline{font-family:var(--font-num);font-variant-numeric:tabular-nums}
   .it-facts a{color:var(--accent);text-decoration:none}
   .it-facts a:hover{text-decoration:underline}
@@ -136,6 +140,8 @@
   .no:hover{filter:brightness(.92)}
   button[disabled]{opacity:.5;cursor:default}
   .note{color:var(--danger);font-size:.9rem;margin:12px 2px 0;min-height:1px}
+  .mod-note{color:var(--accent-strong);font-size:.82rem;font-weight:600;margin:8px 2px 0;min-height:1px}
+  .ok.is-modified{box-shadow:inset 0 0 0 2px var(--orange)} /* orange ring flags an edited cart */
   .center{text-align:center;padding:26px 0;color:var(--ink-soft)}
   .spinner{width:30px;height:30px;margin:0 auto 12px;border:3px solid var(--line);
     border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
@@ -249,11 +255,17 @@
     return row;
   }
 
-  // rating 0..5; reviewCount optional.
-  function starString(rating){
-    var cr = Math.max(0, Math.min(5, rating));
-    var r2 = Math.round(cr*2)/2, full = Math.floor(r2), half = (r2-full)===0.5;
-    return '★'.repeat(full) + (half?'½':'') + '☆'.repeat(5-full-(half?1:0));
+  // Rating 0..5 as five stars with a precise partial fill (overlay clipped to a width),
+  // so 4.6 renders a real fractional star instead of the literal "1/2" glyph.
+  function buildStars(rating){
+    var r = Math.max(0, Math.min(5, rating));
+    var wrap = elt('span', { cls:'stars' });
+    wrap.appendChild(document.createTextNode('★★★★★'));       // grey backing (empty stars)
+    var fill = elt('span', { cls:'fill', text:'★★★★★' });     // orange, clipped to the rating
+    fill.style.width = (r / 5 * 100) + '%';
+    wrap.appendChild(fill);
+    wrap.setAttribute('aria-label', r.toFixed(1) + ' out of 5 stars');
+    return wrap;
   }
 
   var REASONS = {
@@ -315,7 +327,8 @@
     });
     if (qtyInput) qtyInput.addEventListener('input', recomputeTotal);
     if (typeof it.rating === 'number' && isFinite(it.rating)){
-      facts.appendChild(elt('span', { cls:'stars', text: starString(it.rating) + ' ' + Math.max(0,Math.min(5,it.rating)).toFixed(1) }));
+      facts.appendChild(buildStars(it.rating));
+      facts.appendChild(elt('span', { cls:'rating-num', text: Math.max(0,Math.min(5,it.rating)).toFixed(1) }));
       if (typeof it.reviewCount === 'number' && isFinite(it.reviewCount)){
         facts.appendChild(elt('span', { text: Math.round(it.reviewCount).toLocaleString() + ' ratings' }));
       }
@@ -397,6 +410,7 @@
   // The guardian can uncheck items or change quantities — "the cart is good except
   // these". Each item row registers here; recomputeTotal keeps the Approved total live.
   var GUARDIAN_SELECTION = [];
+  var approveBtn = null; // set in renderApproval; relabeled live when the cart is edited
   // Editing is opt-in (see .items-head). Off by default: quantities are read-only and the
   // keep/drop checkboxes are hidden, so the guardian can't change the order by accident.
   var EDIT_MODE = false;
@@ -425,6 +439,12 @@
     if (amt) amt.textContent = '$' + money(sum);
     var cnt = document.getElementById('approvedCount');
     if (cnt) cnt.textContent = count + (count === 1 ? ' item' : ' items');
+    // When the guardian has edited the cart, the Approve button says so (it's approving
+    // THEIR version, not the original), and a note under it spells that out.
+    var ed = wasEdited();
+    if (approveBtn){ approveBtn.textContent = ed ? 'Approve changes' : 'Approve'; approveBtn.classList.toggle('is-modified', ed); }
+    var mn = document.getElementById('modNote');
+    if (mn) mn.textContent = ed ? 'You edited the cart. This approves your changes, not the original order.' : '';
   }
   // The included items + chosen quantities, for the decision payload.
   function guardianSelection(){
@@ -493,7 +513,11 @@
       bd.forEach(function(line){
         var neg = Number(line.amount) < 0;
         var r = elt('div', { cls: 'bd-row' + (line.total ? ' bd-total' : '') });
-        r.appendChild(elt('span', { cls:'bd-label', text: String(line.label) }));
+        // Amazon labels the item-price line "Items"; show it as "Subtotal" (clearer that
+        // it's the pre-shipping/tax sum). Other labels pass through as Amazon wrote them.
+        var lbl = String(line.label);
+        if (/^items?$/i.test(lbl.trim())) lbl = 'Subtotal';
+        r.appendChild(elt('span', { cls:'bd-label', text: lbl }));
         r.appendChild(elt('span', { cls:'bd-amt', text: (neg ? '-$' : '$') + money(Math.abs(Number(line.amount))) }));
         bdEl.appendChild(r);
       });
@@ -516,8 +540,12 @@
     recomputeTotal();  // reflect the full cart, then update as the guardian edits
     tickDeadlines();   // paint countdowns immediately, then the interval keeps them live
 
+    var modNote = elt('p', { cls:'mod-note' }); modNote.id = 'modNote';
+    app.appendChild(modNote);
+
     var bar = elt('div', { cls:'actions' });
     var approve = elt('button', { cls:'ok', text:'Approve' });
+    approveBtn = approve;
     var reject = elt('button', { cls:'no', text:'Reject' });
     var note = elt('p', { cls:'note' });
     function decide(verdict){
