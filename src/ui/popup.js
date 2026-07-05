@@ -108,6 +108,13 @@ function toggleDevSection(on) {
   const dev = document.getElementById('devSection');
   if (dev) dev.hidden = !on;
 }
+// A small corner badge that simply says Developer mode is on (independent of the Amazon /
+// Advanced gate on the preview button), so it's always clear the mode is active.
+function toggleDevBadge(on) {
+  const b = document.getElementById('devBadge');
+  if (b) b.hidden = !on;
+  document.body.classList.toggle('has-dev-badge', !!on);
+}
 
 // Is the active tab an Amazon page? (Host permission for amazon.com means tab.url is
 // readable for those tabs without the "tabs" permission; non-Amazon tabs return no url,
@@ -139,7 +146,7 @@ async function main() {
   // The "Preview toast" button appears only when ALL hold: Advanced mode on, Developer mode
   // on, and the active tab is an Amazon page (the toast previews the on-Amazon notification).
   const onAmazon = await activeTabIsAmazon();
-  const showDev = (s) => toggleDevSection(!!(s.advancedMode && s.devMode && onAmazon));
+  const showDev = (s) => { toggleDevSection(!!(s.advancedMode && s.devMode && onAmazon)); toggleDevBadge(!!s.devMode); };
   showDev(settings);
   const devBtn = document.getElementById('devToastBtn');
   if (devBtn) devBtn.addEventListener('click', showTestToast);

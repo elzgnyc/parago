@@ -85,9 +85,16 @@ function enhanceSelect(select) {
   };
   const open = () => {
     build(); list.hidden = false; btn.setAttribute('aria-expanded', 'true');
+    // These dropdowns sit near the page bottom. Open UPWARD when the button is low in the
+    // viewport so the full list is visible with no manual scrolling; else downward.
+    const r = btn.getBoundingClientRect();
+    const below = window.innerHeight - r.bottom;
+    wrap.classList.toggle('drop-up', below < 300 && r.top > below);
     const sel = list.querySelector('.cselect-opt.is-sel');
     if (sel) sel.scrollIntoView({ block: 'nearest' });
     if (select.options.length > 12) filter.focus();
+    // Fallback: still ensure the open list is scrolled into view.
+    requestAnimationFrame(() => { try { list.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (e) { /* older browser */ } });
   };
   function close() { list.hidden = true; btn.setAttribute('aria-expanded', 'false'); }
 
@@ -191,7 +198,9 @@ function paintThemePill() {
 // ── Detail level (Simple / Advanced) ─────────────────────────────────────────────
 function applyAdvancedVisibility(advanced) {
   for (const el of document.querySelectorAll('[data-adv]')) el.hidden = !advanced;
-  for (const b of document.querySelectorAll('.ui-mode-btn')) {
+  // Only the Simple/Advanced buttons ([data-mode]); the theme pill also uses .ui-mode-btn
+  // but must keep its own active state.
+  for (const b of document.querySelectorAll('.ui-mode-btn[data-mode]')) {
     b.classList.toggle('is-active', (b.getAttribute('data-mode') === 'advanced') === !!advanced);
   }
 }
@@ -565,7 +574,7 @@ async function main() {
   document.getElementById('tgResetBtn').addEventListener('click', resetTelegramLink);
   document.getElementById('testBtn').addEventListener('click', sendTest);
 
-  for (const b of document.querySelectorAll('.ui-mode-btn')) {
+  for (const b of document.querySelectorAll('.ui-mode-btn[data-mode]')) {
     b.addEventListener('click', async () => {
       const advanced = b.getAttribute('data-mode') === 'advanced';
       await setSettings({ advancedMode: advanced });
