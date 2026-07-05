@@ -29,33 +29,33 @@
 /* Dark theme: options.js stamps data-theme="dark" on the root when the user toggles
    the moon/sun switch. Only the palette variables change; every surface reads them. */
 :root[data-theme="dark"] {
-  --bg: #14181d;
-  --surface: #1e262e;
+  --bg: #1a1a1c;
+  --surface: #242426;
   --ink: #f0ece4;
-  --ink-soft: #9aa0a6;
-  --line: #313b45;
+  --ink-soft: #a1a1a4;
+  --line: #38383b;
   --accent: #3d9be0;
   --accent-strong: #6bb4ea;
-  --accent-tint: #16324a;
+  --accent-tint: #2b2d31;
   --danger: #e5776e;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 30px rgba(0, 0, 0, 0.35);
 }
-:root[data-theme="dark"] input.switch:not(:checked) { background: #3a4550; }
+:root[data-theme="dark"] input.switch:not(:checked) { background: #45454a; }
 
 /* AMOLED: pure-black canvas for OLED screens (one more tap past Dark). Same accents. */
 :root[data-theme="amoled"] {
   --bg: #000000;
-  --surface: #0d1013;
+  --surface: #0e0e10;
   --ink: #f0ece4;
-  --ink-soft: #93999f;
-  --line: #23282e;
+  --ink-soft: #97979a;
+  --line: #242426;
   --accent: #3d9be0;
   --accent-strong: #6bb4ea;
-  --accent-tint: #10283c;
+  --accent-tint: #1c1e22;
   --danger: #e5776e;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 10px 30px rgba(0, 0, 0, 0.6);
 }
-:root[data-theme="amoled"] input.switch:not(:checked) { background: #2a333d; }
+:root[data-theme="amoled"] input.switch:not(:checked) { background: #303033; }
 
 .brand-controls { display: flex; align-items: center; gap: 12px; }
 
@@ -312,7 +312,7 @@ input.pop-switch:checked { background: #2f6bff; } /* royal blue when on (beats t
   font: inherit; font-weight: 600; font-size: 0.85rem;
   padding: 6px 15px; border: 0; border-radius: 999px;
   background: transparent; color: var(--ink-soft); cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  transition: background 0.2s ease, color 0.2s ease;
 }
 .ui-mode-btn.is-active { background: var(--accent); color: #fff; }
 .ui-mode-btn:focus-visible { outline: 3px solid var(--accent-tint); outline-offset: 2px; }
@@ -336,12 +336,23 @@ input.pop-switch:checked { background: #2f6bff; } /* royal blue when on (beats t
   font: inherit; font-weight: 600; font-size: 0.88rem;
   padding: 6px 14px; border: 0; border-radius: 999px;
   background: transparent; color: var(--ink-soft); cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  transition: background 0.2s ease, color 0.2s ease;
 }
 .seg-btn.is-active { background: var(--accent); color: #fff; }
 .seg-btn:focus-visible { outline: 3px solid var(--accent-tint); outline-offset: 2px; }
 .seg-ic { display: inline-grid; place-items: center; }
 .seg-onoff .seg-btn { min-width: 48px; justify-content: center; padding: 6px 4px; }
+/* Two-option On/Off pills get a highlight that SLIDES between the segments. The buttons
+   are equal-width, so a 50% pill offset by the gap tracks the active one. */
+.seg-onoff { position: relative; isolation: isolate; }
+.seg-onoff::before {
+  content: ""; position: absolute; z-index: 0; top: 3px; bottom: 3px; left: 3px;
+  width: calc((100% - 8px) / 2); background: var(--accent); border-radius: 999px;
+  transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.seg-onoff:has(.seg-btn:last-child.is-active)::before { transform: translateX(calc(100% + 2px)); }
+.seg-onoff .seg-btn { position: relative; z-index: 1; }
+.seg-onoff .seg-btn.is-active { background: transparent; } /* the sliding pill is the highlight, not the button bg */
 /* Three-option segment (approval mode, flagged-items action): fills the column. */
 .seg-triple { display: flex; width: 100%; }
 .seg-triple .seg-btn { flex: 1 1 0; min-width: 0; justify-content: center; padding: 7px 6px; }
@@ -385,7 +396,7 @@ label.is-changed::after, .field-label.is-changed::after {
 .tg-connected-name { color: var(--ink-soft); font-weight: 500; }
 .tg-connected .tg-chev { margin-left: auto; transition: transform 0.15s; }
 .tg-connected[aria-expanded="true"] .tg-chev { transform: rotate(180deg); }
-.tg-details { padding: 12px 2px 2px; }
+.tg-details { padding: 12px 2px 14px; }
 .tg-details .btn { margin-top: 8px; }
 
 /* Backend URL: a long value, so give it a monospace, full-width field */
