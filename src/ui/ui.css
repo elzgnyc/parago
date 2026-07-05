@@ -40,7 +40,7 @@
   --danger: #e5776e;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 30px rgba(0, 0, 0, 0.35);
 }
-:root[data-theme="dark"] input.switch { background: #3a4550; }
+:root[data-theme="dark"] input.switch:not(:checked) { background: #3a4550; }
 
 /* AMOLED: pure-black canvas for OLED screens (one more tap past Dark). Same accents. */
 :root[data-theme="amoled"] {
@@ -55,7 +55,7 @@
   --danger: #e5776e;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 10px 30px rgba(0, 0, 0, 0.6);
 }
-:root[data-theme="amoled"] input.switch { background: #2a333d; }
+:root[data-theme="amoled"] input.switch:not(:checked) { background: #2a333d; }
 
 .brand-controls { display: flex; align-items: center; gap: 12px; }
 
@@ -271,7 +271,7 @@ input.switch:focus-visible { box-shadow: 0 0 0 3px var(--accent-tint); }
    reads as one control group instead of a fat toggle beside a tiny cog. */
 .pop-switch { flex: 0 0 auto; width: 40px; height: 23px; }
 .pop-switch::before { width: 17px; height: 17px; top: 3px; left: 3px; }
-.pop-switch:checked { background: #2f6bff; } /* royal blue when on (not the muted accent) */
+input.pop-switch:checked { background: #2f6bff; } /* royal blue when on (beats the accent/dark rules) */
 .pop-switch:checked::before { transform: translateX(17px); }
 .pop-orders { margin-top: 16px; }
 .pop-icon-btn {
@@ -401,14 +401,15 @@ label.is-changed::after, .field-label.is-changed::after {
    [hidden]{display:none}), so the section must be explicitly hidden when gated off. */
 .pop-dev[hidden] { display: none; }
 .pop-dev-hint { color: var(--ink-soft); font-size: 0.78rem; margin: 0; }
-/* "Developer mode on" badge, bottom-right of the popup. */
+/* Subtle "Developer mode on" badge, pinned to the popup's bottom-right. */
 .pop-dev-badge {
   position: fixed; right: 8px; bottom: 7px; z-index: 30; pointer-events: none;
-  font-size: 0.66rem; font-weight: 700;
-  color: var(--accent); background: var(--accent-tint);
-  border: 1px solid var(--line); padding: 2px 9px; border-radius: 999px;
+  font-size: 0.62rem; font-weight: 600; letter-spacing: 0.02em;
+  color: var(--ink-soft); background: var(--surface);
+  border: 1px solid var(--line); padding: 2px 8px; border-radius: 999px; opacity: 0.92;
 }
-body.popup.has-dev-badge { padding-bottom: 26px; } /* room so the badge never covers content */
+/* Give the popup real height so the badge sits clearly at the bottom, never over the header. */
+body.popup.has-dev-badge { min-height: 118px; padding-bottom: 24px; }
 /* Small + slim: hug the content, not full width. */
 .pop-dev .btn { align-self: flex-start; width: auto; padding: 5px 12px; font-size: 0.8rem; font-weight: 600; }
 .toast-host { position: fixed; left: 10px; right: 10px; bottom: 10px; z-index: 100; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
