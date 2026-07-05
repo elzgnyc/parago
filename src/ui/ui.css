@@ -383,12 +383,15 @@ label.is-changed::after, .field-label.is-changed::after {
 /* Provider (email / telegram) icons */
 .prov-ic { display: inline-grid; place-items: center; vertical-align: -3px; color: var(--accent); margin-right: 6px; }
 .prov-ic-tg { margin-right: 0; }
-.prov-head { display: flex; align-items: center; gap: 7px; font-weight: 600; margin: 2px 0 10px; }
+.prov-head { display: flex; align-items: center; gap: 7px; font-weight: 600; margin: 0 0 10px; }
+/* The telegram block isn't a .field, so give it the same top divider + padding the email
+   field has, and clear space below its last control so the next divider never crowds it. */
+[data-method="telegram"] { border-top: 1px solid var(--line); padding: 11px 0 4px; }
 
 /* Telegram: connected badge + expandable details */
 .tg-connected {
   display: flex; align-items: center; gap: 9px; width: 100%; text-align: left;
-  font: inherit; font-weight: 600; padding: 12px 14px; cursor: pointer;
+  font: inherit; font-weight: 600; padding: 12px 14px; margin-bottom: 6px; cursor: pointer;
   border: 1px solid var(--line); border-radius: var(--radius-sm);
   background: var(--accent-tint); color: var(--accent-strong);
 }
