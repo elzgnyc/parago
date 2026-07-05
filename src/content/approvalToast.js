@@ -17,7 +17,6 @@ export function showApprovalToast({ title, body, duration = 5000 } = {}) {
   }
   host.textContent = '';
   const card = el('div', 'parago-at-card');
-  card.appendChild(el('span', 'parago-at-dot'));
   const txt = el('div', 'parago-at-text');
   txt.appendChild(el('div', 'parago-at-title', title || 'Sent for approval'));
   if (body) txt.appendChild(el('div', 'parago-at-body', body));
