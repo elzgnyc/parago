@@ -25,10 +25,17 @@
     /* Clean system stack for NUMBERS — the display font renders digits poorly. */
     --font-num:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
   }
+  /* Three dark-ish palettes: soft dark (auto/Dark) and AMOLED pure-black (opt-in, best
+     on OLED phones). "auto" (no data-theme attribute) follows the device; data-theme
+     forces a choice. data-theme="light" matches nothing here, so the base light wins. */
   @media (prefers-color-scheme:dark){
-    :root{--bg:#131a21;--surface:#1b2530;--ink:#f2f4f5;--ink-soft:#a7b0b8;--line:#37424e;
+    :root:not([data-theme]){--bg:#131a21;--surface:#1b2530;--ink:#f2f4f5;--ink-soft:#a7b0b8;--line:#37424e;
       --accent-tint:#12303a;--accent:#43b6c9;--accent-strong:#63c6d7;--navy:#0f1720;}
   }
+  :root[data-theme="dark"]{--bg:#131a21;--surface:#1b2530;--ink:#f2f4f5;--ink-soft:#a7b0b8;--line:#37424e;
+    --accent-tint:#12303a;--accent:#43b6c9;--accent-strong:#63c6d7;--navy:#0f1720;}
+  :root[data-theme="amoled"]{--bg:#000;--surface:#0d1116;--ink:#f2f4f5;--ink-soft:#98a2ab;--line:#23282e;
+    --accent-tint:#0e2228;--accent:#43b6c9;--accent-strong:#63c6d7;--navy:#0b0f13;}
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--ink);
     font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
@@ -139,9 +146,19 @@
   .shipinfo{display:flex;flex-wrap:wrap;gap:6px 18px;margin:12px 2px 2px;font-size:.85rem;color:var(--ink-soft)}
   .shipinfo b{color:var(--ink);font-weight:600}
   .retry{margin-top:10px;font:inherit;color:var(--accent);background:none;border:0;cursor:pointer;text-decoration:underline;padding:0}
+  /* Theme toggle, top-right. Tap Light or Dark; tapping Dark again deepens to AMOLED. */
+  .theme-seg{position:fixed;top:12px;right:12px;z-index:50;display:inline-flex;background:var(--surface);
+    border:1px solid var(--line);border-radius:999px;padding:3px;gap:2px;box-shadow:var(--shadow)}
+  .theme-seg button{flex:0 0 auto;width:auto;font:inherit;font-size:.74rem;font-weight:700;color:var(--ink-soft);
+    background:none;border:0;border-radius:999px;padding:5px 12px;cursor:pointer;transition:none}
+  .theme-seg button.active{background:var(--accent);color:#fff}
 </style>
 </head>
 <body>
+<div class="theme-seg" id="themeSeg" role="group" aria-label="Theme">
+  <button type="button" data-theme-choice="light">Light</button>
+  <button type="button" data-theme-choice="dark">Dark</button>
+</div>
 <div class="wrap">
   <div class="brand"><img src="parago.png" alt="" /><span class="mark">Parago</span></div>
   <div class="card" id="app">
@@ -436,6 +453,9 @@
     clear(app);
     GUARDIAN_SELECTION = [];
     APP_TZ = (typeof data.timezone === 'string' && data.timezone) ? data.timezone : null;
+    // Default the page theme to the shopper's extension theme, unless the guardian has
+    // already picked one here (their explicit choice wins and persists).
+    if (!storedTheme() && typeof data.theme === 'string' && THEME_VALS.indexOf(data.theme) >= 0) setTheme(data.theme, false);
     app.appendChild(elt('p', { cls:'when', text: whenFull(data.createdAt) }));
 
     var items = Array.isArray(data.items) ? data.items : [];
@@ -522,10 +542,10 @@
           var modTag = (st === 'approved' && modified) ? ' (modified)' : '';
           clear(app);
           app.appendChild(elt('div', { cls:'done-badge ' + (st==='approved'?'is-approved':'is-rejected'), text: word + modTag }));
-          // Approve does not mean "bought" yet: the shopper's browser still has to place
-          // the order. Say so, and promise a follow-up once it is actually ordered.
+          // Approve does not buy it: Parago only UNLOCKS the shopper's own checkout, so
+          // the shopper still has to click Place Order. Say that honestly, no false promise.
           var sub = (st === 'approved')
-            ? word + modTag + ' ' + whenFull() + '. Parago is placing the order in the shopper\'s browser now. You\'ll get a confirmation once it\'s actually ordered.'
+            ? word + modTag + ' ' + whenFull() + '. The shopper can now complete this purchase in their browser.'
             : word + ' ' + whenFull() + '. Nothing will be bought. You can close this page.';
           app.appendChild(elt('p', { cls:'when', text: sub }));
         } else if (res && res.reason && REASONS[res.reason]){
@@ -543,6 +563,39 @@
     reject.addEventListener('click', function(){ decide('rejected'); });
     bar.appendChild(approve); bar.appendChild(reject);
     app.appendChild(bar); app.appendChild(note);
+  }
+
+  // Theme: Light / Dark, and tapping Dark again deepens to AMOLED (pure black). "auto"
+  // (no explicit choice) follows the device. The shopper's extension theme arrives with
+  // the request (data.theme) and is used as the default until the guardian picks one here.
+  var THEME_KEY = 'parago_theme', THEME_VALS = ['auto','light','dark','amoled'], CUR_THEME = 'auto';
+  function storedTheme(){ try { var t = localStorage.getItem(THEME_KEY); return THEME_VALS.indexOf(t) >= 0 ? t : null; } catch(e){ return null; } }
+  function systemDark(){ try { return !!(window.matchMedia && window.matchMedia('(prefers-color-scheme:dark)').matches); } catch(e){ return false; } }
+  function resolveTheme(t){ return (t === 'light' || t === 'dark' || t === 'amoled') ? t : (systemDark() ? 'dark' : 'light'); }
+  function applyThemeAttr(t){
+    var root = document.documentElement;
+    if (t === 'light' || t === 'dark' || t === 'amoled') root.setAttribute('data-theme', t);
+    else root.removeAttribute('data-theme');
+  }
+  function paintThemeSeg(){
+    var lb = document.querySelector('[data-theme-choice="light"]'), db = document.querySelector('[data-theme-choice="dark"]');
+    if (!lb || !db) return;
+    var r = resolveTheme(CUR_THEME), darkActive = (r === 'dark' || r === 'amoled');
+    lb.classList.toggle('active', r === 'light');
+    db.classList.toggle('active', darkActive);
+    db.textContent = (CUR_THEME === 'amoled') ? 'AMOLED' : 'Dark';
+  }
+  function setTheme(t, persist){
+    CUR_THEME = t; applyThemeAttr(t); paintThemeSeg();
+    if (persist){ try { localStorage.setItem(THEME_KEY, t); } catch(e){} }
+  }
+  function initThemeControls(){
+    CUR_THEME = storedTheme() || 'auto';
+    applyThemeAttr(CUR_THEME); paintThemeSeg();
+    var lb = document.querySelector('[data-theme-choice="light"]'), db = document.querySelector('[data-theme-choice="dark"]');
+    if (lb) lb.addEventListener('click', function(){ setTheme('light', true); });
+    if (db) db.addEventListener('click', function(){ setTheme(CUR_THEME === 'dark' ? 'amoled' : 'dark', true); });
+    try { window.matchMedia('(prefers-color-scheme:dark)').addEventListener('change', function(){ if (CUR_THEME === 'auto') paintThemeSeg(); }); } catch(e){}
   }
 
   function load(){
@@ -568,6 +621,7 @@
         ]);
       });
   }
+  initThemeControls();
   load();
 </script>
 </body>
