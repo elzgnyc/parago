@@ -82,6 +82,12 @@
           <p class="field-hint" id="testStatus" aria-live="polite"></p>
         </div>
 
+        <div class="field switch-row" data-adv>
+          <span class="field-label" data-i18n="label_auto_place">Place the order automatically after approval</span>
+          <div class="seg seg-onoff" id="seg-autoPlace"></div>
+        </div>
+        <p class="field-hint" data-adv data-i18n="hint_auto_place">Off (safest): approval only unlocks checkout and you press Place order yourself. On: once approved, Parago presses Place order for you and completes the purchase.</p>
+
         <div class="field" data-adv>
           <label for="functionsBaseUrl" data-i18n="label_functions_url">Email backend URL</label>
           <input type="url" id="functionsBaseUrl" class="wide-input" placeholder="https://YOUR-REF.functions.supabase.co" />

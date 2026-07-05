@@ -12,6 +12,10 @@ import { RELAY_STATUS } from '../relay/relayClient.js';
 import { showOverlay, setOverlayStatus, removeOverlay } from './overlay.js';
 import { parseFinalOrderTotal, isPlaceOrderClick, findPlaceOrderControl } from '../lib/placeOrder.js';
 import { consumeSuppress } from './interceptGuard.js';
+import { createPlacementStore } from '../lib/placementStore.js';
+import { buildSnapshot } from '../lib/orderSnapshot.js';
+import { runPlacementCompletion } from './placementManager.js';
+import { pageKind } from './amazonNav.js';
 
 const APPROVALS_KEY = 'parago_approvals';
 const OUTSTANDING_KEY = 'parago_outstanding';
@@ -140,9 +144,15 @@ export function pickPendingRequest(pendingList, total) {
 
 let activeRequestId = null;
 let unsubscribe = null;
+// Auto-place poll handle, and a no-op nav for runPlacementCompletion: its default
+// nav.toCheckout points at the CART page (pageKind 'cart', not 'checkout'), which would
+// reload-loop; we only ever run it while already on checkout, so navigation is never needed.
+let placementPollTimer = null;
+const NOOP_NAV = { toCheckout() { /* stay put: auto-place only runs on the checkout page */ } };
 
 function teardown() {
   if (unsubscribe) { try { unsubscribe(); } catch (e) { /* no-op */ } unsubscribe = null; }
+  clearInterval(placementPollTimer); placementPollTimer = null;
   activeRequestId = null;
 }
 
@@ -395,15 +405,26 @@ async function onPlaceOrderPress(ev) {
     if (!outstanding.some((o) => totalsMatch(o.total, total))) {
       const enriched = await enrichItems(items);
       const ci = parseCheckoutInfo(document) || {};
+      const now = Date.now();
       const id = await relay.submitRequest({ total, items: enriched, breakdown: parsed.breakdown, shipTo: ci.shipTo, payment: ci.payment });
-      await saveOutstanding([...outstanding, { id, total, createdAt: Date.now() }]);
+      await saveOutstanding([...outstanding, { id, total, createdAt: now }]);
+      // Auto-place mode: record an order snapshot keyed by the SAME request id, so a later
+      // runPlacementCompletion pass (see run) can claim, re-verify against the live order,
+      // and click Place order once the guardian approves. Off by default (unlock-only).
+      if (armedSettings.autoPlace) {
+        try {
+          await createPlacementStore().put(id, { snapshot: buildSnapshot({ items: enriched, total, address: ci.shipTo, payment: ci.payment }, now), status: 'pending', createdAt: now });
+        } catch (e) { /* non-fatal: this order just won't auto-place */ }
+      }
     }
   } catch (e) {
     // Fail closed: we preventDefault'd, so the order was NOT placed. The request may not
     // have been sent (offline); the shopper can retry. Nothing buys without approval.
     console.error('[parago] approval request failed:', e);
   }
-  navigate(SHOP_URL);
+  // Unlock-only: send the shopper back to shopping (their OWN next click completes it).
+  // Auto-place: stay on the checkout page so the poll in run() can complete it on approval.
+  if (!armedSettings.autoPlace) navigate(SHOP_URL);
 }
 
 export function armPlaceOrderIntercept(settings, approvals = []) {
@@ -434,6 +455,7 @@ export async function reconcileApprovals() {
   const outstanding = await getOutstanding();
   if (!outstanding.length) return;
   let approvals = await getApprovals();
+  const placements = createPlacementStore();
   const stillPending = [];
   let approvalsChanged = false;
   for (const o of outstanding) {
@@ -446,13 +468,19 @@ export async function reconcileApprovals() {
     }
     if (!rec) continue; // not_found → drop
     if (rec.status === RELAY_STATUS.APPROVED) {
+      // If auto-place already claimed or placed this exact request (its placement record
+      // is 'placing'/'placed'), do NOT also mint a manual-unlock approval for its total:
+      // that would let the shopper place the SAME approved order a second time after
+      // switching auto-place off. Just drop the outstanding marker.
+      let placed = false;
+      try { const pl = await placements.get(o.id); placed = !!(pl && (pl.status === 'placing' || pl.status === 'placed')); } catch (e) { /* treat as not placed */ }
       // Record the approval, but only for a real total (a null total can never be
       // matched by isApprovedForTotal, so recording it just accumulates junk).
-      if (o.total != null && !isApprovedForTotal(approvals, o.total)) {
+      if (!placed && o.total != null && !isApprovedForTotal(approvals, o.total)) {
         approvals = recordApproval(approvals, o.total, Date.now());
         approvalsChanged = true;
       }
-      // drop from outstanding: approval is now recorded locally
+      // drop from outstanding: approval is now recorded locally (or owned by auto-place)
     } else if (rec.status === RELAY_STATUS.PENDING) {
       stillPending.push(o); // genuinely still waiting → keep watching
     }
@@ -476,11 +504,12 @@ export async function run() {
   }
 
   if (settings.guardianMode !== 'off') {
-    // Arm the interceptor FIRST, with the approvals already on disk, so there is never a
-    // live-but-unarmed window where a place-order press could slip through unreviewed
-    // (reconcileApprovals is a network round-trip). Worst case before reconcile finishes:
-    // an already-approved total is briefly re-held (fail-closed), never auto-placed.
-    armPlaceOrderIntercept(settings, await getApprovals());
+    // Arm the interceptor FIRST, so there is never a live-but-unarmed window where a
+    // place-order press could slip through unreviewed. In auto-place mode arm with NO
+    // approvals: that mode never records a click-unlock approval (the extension places
+    // programmatically via suppressNextPlace), so arming with none keeps the interceptor
+    // holding every manual press and removes any manual-unlock double-place path.
+    armPlaceOrderIntercept(settings, settings.autoPlace ? [] : await getApprovals());
     // Preload the best-known total from the cart snapshot, so the sync approval gate has
     // a stable total to match on a page where the live total does not parse.
     try {
@@ -489,13 +518,28 @@ export async function run() {
         armedSnapshotTotal = snap.total;
       }
     } catch (e) { /* no-op: fall back to a null total (fail closed) */ }
-    // Then learn the outcome of any prior request and refresh the armed approvals, so an
-    // approved total is recognized and the shopper's next click is let straight through.
-    try {
-      await reconcileApprovals();
-    } catch (e) {
-      console.error('[parago] reconcileApprovals failed:', e);
+    if (settings.autoPlace) {
+      // Auto-place: finish any approved order by claiming + clicking Place order. Every
+      // fail-closed guard (snapshot match, exclusive claim, recognized control,
+      // confirm-or-timeout) lives in runPlacementCompletion. Run ONLY while on the checkout
+      // page (off-checkout it must not run: its built-in nav would reload-loop, so we pass a
+      // no-op nav and never invoke it there). Poll so an order held on THIS page completes
+      // without a reload; returning to checkout later re-runs it via this same path.
+      if (pageKind() === 'checkout') {
+        const tick = () => runPlacementCompletion({ relay, nav: NOOP_NAV }).catch((e) => console.error('[parago] placement failed:', e));
+        await tick();
+        clearInterval(placementPollTimer);
+        placementPollTimer = setInterval(tick, 4000);
+      }
+    } else {
+      // Unlock-only: learn the outcome of any prior request and refresh the armed
+      // approvals, so an approved total is recognized and the shopper's next click passes.
+      try {
+        await reconcileApprovals();
+      } catch (e) {
+        console.error('[parago] reconcileApprovals failed:', e);
+      }
+      armedApprovals = await getApprovals();
     }
-    armedApprovals = await getApprovals();
   }
 }

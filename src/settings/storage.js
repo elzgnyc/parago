@@ -11,6 +11,7 @@ export const DEFAULTS = {
   maxPrice: 0,          // flag items priced above this ($); 0 = off
   hoverReveal: true,
   guardianMode: 'off',  // 'off' | 'always' | 'over_limit'
+  autoPlace: false,     // false = unlock-only (shopper clicks Place order after approval); true = Parago places it automatically once approved
   guardianLimit: 50,    // approval required above this total when over_limit
   guardianName: '',     // label for whoever approves
   deliveryMethod: 'telegram', // how the approver is reached: 'email' | 'telegram'. Per-method config below persists independently, so switching never clears the other.
