@@ -109,6 +109,22 @@ function toggleDevSection(on) {
   if (dev) dev.hidden = !on;
 }
 
+// Is the active tab an Amazon page? (Host permission for amazon.com means tab.url is
+// readable for those tabs without the "tabs" permission; non-Amazon tabs return no url,
+// so they read as false.) The test toast previews the on-Amazon notification, so it is
+// only offered there.
+function isAmazonUrl(u) { return typeof u === 'string' && /^https?:\/\/([^/]+\.)?amazon\.com\//i.test(u); }
+function activeTabIsAmazon() {
+  return new Promise((resolve) => {
+    try {
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        if (chrome.runtime && chrome.runtime.lastError) return resolve(false);
+        resolve(isAmazonUrl(tabs && tabs[0] && tabs[0].url));
+      });
+    } catch (e) { resolve(false); }
+  });
+}
+
 async function main() {
   const settings = await getSettings();
   setLang(settings.lang);
@@ -120,12 +136,14 @@ async function main() {
   const power = document.getElementById('power');
   power.addEventListener('change', togglePower);
   renderPower(settings);
-  // Developer mode: expose the "Send test notification" preview button.
-  toggleDevSection(settings.devMode);
+  // Developer mode: expose the "Send test notification" preview button, but ONLY when the
+  // active tab is an Amazon page (the toast previews the on-Amazon guardian notification).
+  const onAmazon = await activeTabIsAmazon();
+  toggleDevSection(settings.devMode && onAmazon);
   const devBtn = document.getElementById('devToastBtn');
   if (devBtn) devBtn.addEventListener('click', showTestToast);
   // Reflect changes made elsewhere (e.g. the Options page) while the popup is open.
-  onSettingsChanged(() => getSettings().then((s) => { renderPower(s); applyTheme(s.theme); toggleDevSection(s.devMode); }));
+  onSettingsChanged(() => getSettings().then((s) => { renderPower(s); applyTheme(s.theme); toggleDevSection(s.devMode && onAmazon); }));
   document.getElementById('openSettings').addEventListener('click', () => {
     chrome.runtime.openOptionsPage();
   });
