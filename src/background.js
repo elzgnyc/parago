@@ -1,7 +1,7 @@
 import { parseProductMeta } from './lib/parseProduct.js';
 import { getSettings } from './settings/storage.js';
 import { CONFIG } from './config.js';
-import { resolveFunctionsBaseUrl } from './relay/selectRelay.js';
+import { resolveFunctionsBaseUrl, isAllowedFetchOrigin } from './relay/selectRelay.js';
 
 // MV3 background service worker. Content scripts can't make host-permission'd
 // cross-origin fetches in MV3, so the relay sends a message here and we fetch.
@@ -10,6 +10,17 @@ async function doFetch({ url, options }) {
   let body = null;
   try { body = await res.json(); } catch { body = null; }
   return { ok: res.ok, status: res.status, body };
+}
+
+// parago_fetch is a credential-capable proxy (the worker holds the amazon.com and
+// supabase host permissions), so constrain it to the one origin it legitimately
+// targets: the configured Supabase Edge Functions base. Derived from settings so a
+// custom/self-hosted functions URL still works, while an arbitrary caller-supplied
+// URL (SSRF, cross-origin cookie replay) is rejected. Pairs with the sender.id gate
+// below; today nothing external can reach this handler, this keeps it that way if a
+// future change ever adds externally_connectable or a page bridge.
+async function fetchOriginAllowed(url) {
+  return isAllowedFetchOrigin(url, resolveFunctionsBaseUrl(await getSettings(), CONFIG));
 }
 
 // Fetch a product page and extract rating/reviewCount for enrichment. A programmatic
@@ -36,8 +47,19 @@ async function productMeta(asin) {
 const placementClaims = new Set();
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  // Only this extension's own isolated-world scripts may drive these privileged
+  // handlers. No externally_connectable is declared and there is no page->content
+  // bridge, so a sender.id that isn't ours means a future misconfig, not a real
+  // caller. Reject rather than trust. (Legit internal messages always carry our id.)
+  if (!_sender || _sender.id !== chrome.runtime.id) return false;
   if (msg && msg.type === 'parago_fetch') {
-    doFetch(msg).then(sendResponse).catch((e) => sendResponse({ ok: false, status: 0, body: null, error: String(e) }));
+    (async () => {
+      if (!(await fetchOriginAllowed(msg.url))) {
+        return sendResponse({ ok: false, status: 0, body: null, error: 'blocked_origin' });
+      }
+      try { sendResponse(await doFetch(msg)); }
+      catch (e) { sendResponse({ ok: false, status: 0, body: null, error: String(e) }); }
+    })();
     return true; // keep the channel open for the async response
   }
   if (msg && msg.type === 'parago_claim_placement' && msg.id) {

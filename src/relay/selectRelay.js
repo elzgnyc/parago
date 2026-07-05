@@ -15,6 +15,18 @@ export function resolveFunctionsBaseUrl(settings, config) {
   return base;
 }
 
+// Guard for the background parago_fetch proxy: a target is allowed only if it is an
+// absolute https URL on the EXACT same origin as the resolved functions base. Exact
+// origin (not a host suffix) so a lookalike like <ref>.functions.supabase.co.evil.com
+// cannot pass. Any parse failure / relative URL / non-https fails closed to false.
+export function isAllowedFetchOrigin(url, baseUrl) {
+  try {
+    const target = new URL(url);
+    if (target.protocol !== 'https:') return false;
+    return target.origin === new URL(baseUrl).origin;
+  } catch { return false; }
+}
+
 // Use the remote (email) relay only when we can actually send: a usable https
 // functions base URL is configured AND the user provided a guardian email.
 // Otherwise fall back to MockRelay (local popup approval) so the feature degrades
