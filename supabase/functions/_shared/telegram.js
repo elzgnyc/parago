@@ -37,6 +37,19 @@ function cleanDelivery(s) {
   return (m ? m[0] : s).replace(/\s*(?:on \$[\d.,]+ of qualifying items|FREE Returns|Order within).*$/i, '').trim();
 }
 
+// Lead with the date/window, THEN Free or the price: "Tuesday, July 7 · Free" or
+// "Overnight 4 AM - 8 AM · $6.99" (not "FREE delivery ...").
+function formatDelivery(s) {
+  s = cleanDelivery(s);
+  if (!s) return '';
+  const free = /\bFREE\b/i.test(s);
+  const costM = s.match(/\$[\d.,]+/);
+  const when = s.replace(/\bFREE\b/ig, '').replace(/\bdelivery\b/ig, '').replace(/\$[\d.,]+/g, '')
+    .replace(/\s{2,}/g, ' ').replace(/^[\s.,-]+|[\s.,-]+$/g, '').trim();
+  const cost = free ? 'Free' : (costM ? costM[0] : '');
+  return cost ? `${when} · ${cost}` : when;
+}
+
 // A usable product photo (not a loading spinner / placeholder). Amazon serves the
 // real image under /images/I/ and its cart spinner under /images/G/…loading-large.gif;
 // reject the latter (and data: / .gif) so a stale capture never leads with a spinner.
@@ -90,7 +103,7 @@ export function buildTelegramMessage({ chatId, total, items, link, token }) {
     parts.push(`${i + 1}. ${title}`);
     const detail = [price && (qty > 1 ? `${price} ×${qty}` : price), meta].filter(Boolean).join('    ');
     if (detail) parts.push(`    ${detail}`);
-    if (typeof o.delivery === 'string' && o.delivery) { const dv = cleanDelivery(o.delivery); if (dv) parts.push(`    ${dv}`); }
+    if (typeof o.delivery === 'string' && o.delivery) { const dv = formatDelivery(o.delivery); if (dv) parts.push(`    ${dv}`); }
   });
   const extra = list.length - shown.length;
   if (extra > 0) parts.push('', `+${extra} more item${extra > 1 ? 's' : ''}`);

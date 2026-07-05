@@ -153,18 +153,20 @@
     </div>
 
     <div class="actions">
-      <div class="lang-row">
-        <label for="lang" data-i18n="label_language">Language</label>
-        <select id="lang" class="lang-select">
-          <option value="en" data-i18n="lang_en">English</option>
-          <option value="vi" data-i18n="lang_vi">Tiếng Việt</option>
-        </select>
-      </div>
-      <div class="lang-row">
-        <label for="timezone" data-i18n="label_timezone">Time zone</label>
-        <select id="timezone" class="lang-select">
-          <option value="" data-i18n="tz_auto">Automatic (this device)</option>
-        </select>
+      <div class="prefs-row">
+        <div class="lang-row">
+          <label for="lang" data-i18n="label_language">Language</label>
+          <select id="lang" class="lang-select">
+            <option value="en" data-i18n="lang_en">English</option>
+            <option value="vi" data-i18n="lang_vi">Tiếng Việt</option>
+          </select>
+        </div>
+        <div class="lang-row">
+          <label for="timezone" data-i18n="label_timezone">Time zone</label>
+          <select id="timezone" class="lang-select">
+            <option value="" data-i18n="tz_auto">Automatic (this device)</option>
+          </select>
+        </div>
       </div>
       <span class="saved" id="saved" aria-live="polite"></span>
       <button id="reset" class="btn btn-secondary btn-reset" hidden>

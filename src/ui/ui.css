@@ -387,6 +387,7 @@ label.is-changed::after, .field-label.is-changed::after {
 .stars-control input[type="number"] { width: 72px; font-weight: 600; }
 
 /* Language: a plain row in the footer (not a floating card). */
+.prefs-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; }
 .lang-row { display: flex; align-items: center; gap: 10px; }
 .lang-row label { font-weight: 600; }
 .lang-select { width: auto; min-width: 160px; }

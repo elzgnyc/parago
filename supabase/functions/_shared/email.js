@@ -23,6 +23,17 @@ function cleanDelivery(s) {
   const m = s.match(/(?:FREE\s+)?delivery\b.*/i) || s.match(/(?:Arrives|Get it)\b.*/i);
   return (m ? m[0] : s).replace(/\s*(?:on \$[\d.,]+ of qualifying items|FREE Returns|Order within).*$/i, '').trim();
 }
+// Date/window first, then Free or the price ("Tuesday, July 7 - Free").
+function formatDelivery(s) {
+  s = cleanDelivery(s);
+  if (!s) return '';
+  const free = /\bFREE\b/i.test(s);
+  const costM = s.match(/\$[\d.,]+/);
+  const when = s.replace(/\bFREE\b/ig, '').replace(/\bdelivery\b/ig, '').replace(/\$[\d.,]+/g, '')
+    .replace(/\s{2,}/g, ' ').replace(/^[\s.,-]+|[\s.,-]+$/g, '').trim();
+  const cost = free ? 'Free' : (costM ? costM[0] : '');
+  return cost ? `${when} · ${cost}` : when;
+}
 // A usable product photo, not a loading spinner/placeholder (Amazon's cart spinner is
 // /images/G/…loading-large.gif; the real image is /images/I/…).
 function isProductPhoto(u) {
@@ -73,7 +84,7 @@ export function buildBrevoPayload({ senderEmail, senderName, guardianEmail, guar
       : title;
     const meta = renderStars(o.rating, o.reviewCount);
     const metaHtml = meta ? `<div style="color:#888;font-size:12px">${meta}</div>` : '';
-    const delivery = (typeof o.delivery === 'string' && o.delivery) ? cleanDelivery(o.delivery) : '';
+    const delivery = (typeof o.delivery === 'string' && o.delivery) ? formatDelivery(o.delivery) : '';
     const deliveryHtml = delivery ? `<div style="color:#555;font-size:12px">${escapeHtml(delivery)}</div>` : '';
     const price = (typeof o.price === 'number') ? ` · $${money(o.price)}` : '';
     const qtyNum = Number(o.qty);
