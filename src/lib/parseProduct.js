@@ -14,8 +14,53 @@ function decode(s) {
 }
 function clean(s) { return decode(stripTags(s)).replace(/\s+/g, ' ').trim(); }
 
+// Upsize an Amazon image URL: the size is encoded in the filename token
+// (e.g. ._AC_US40_. on a thumbnail); swap it for a large render.
+function biggerProductImage(u) {
+  return String(u || '').replace(/\._[^./]*_\.(jpg|jpeg|png|webp)(\?.*)?$/i, '._AC_SL1200_.$1');
+}
+
+// Product-video URLs live in the page's ImageBlock state as raw
+// ".../<id>.mp4/productVideoOptimized.mp4" strings, each paired with a
+// ".../<id>.mp4/r/THUMBNAIL_...JPG" poster frame. Works on any HTML string (regex),
+// so it serves both the background fetch and the content-script (innerHTML) paths.
+function extractVideos(html) {
+  const s = String(html || '');
+  const mp4s = [...s.matchAll(/(https:\/\/[^"'\s]+?\/productVideoOptimized\.mp4)/g)].map((m) => m[1]);
+  const posters = [...s.matchAll(/(https:\/\/[^"'\s]+?\/THUMBNAIL[^"'\s]*\.(?:JPG|jpg))/g)].map((m) => m[1]);
+  const out = [], seen = new Set();
+  for (const url of mp4s) {
+    const base = url.replace(/\/productVideoOptimized\.mp4$/, ''); // ".../<id>.mp4"
+    if (seen.has(base)) continue;
+    seen.add(base);
+    out.push({ url, poster: posters.find((p) => p.indexOf(base) === 0) || null });
+    if (out.length >= 3) break;
+  }
+  return out;
+}
+
+// Ordered gallery image URLs from the /dp/ thumbnail strip (#altImages), upsized. Only
+// li.imageThumbnail (not video thumbnails) so we never treat a video poster as a photo.
+function galleryFromDom(root) {
+  const urls = [], seen = new Set();
+  for (const img of root.querySelectorAll('#altImages li.imageThumbnail img')) {
+    const src = img.getAttribute('src') || '';
+    if (!/\/images\/I\//.test(src)) continue;
+    const big = biggerProductImage(src);
+    const id = (big.match(/\/images\/I\/([^./]+)\./) || [])[1];
+    if (id && !seen.has(id)) { seen.add(id); urls.push(big); }
+    if (urls.length >= 8) break;
+  }
+  if (!urls.length) { // fallback: the single main image at hi-res
+    const main = root.querySelector('#landingImage, #imgTagWrapperId img, #main-image-container img');
+    const hi = main && (main.getAttribute('data-old-hires') || main.getAttribute('src'));
+    if (hi && /\/images\/I\//.test(hi)) urls.push(hi);
+  }
+  return urls;
+}
+
 export function parseProductMeta(html) {
-  const out = { rating: null, reviewCount: null, bullets: [], dateFirstAvailable: null, rank: null, brand: null };
+  const out = { rating: null, reviewCount: null, bullets: [], dateFirstAvailable: null, rank: null, brand: null, gallery: [], videos: [] };
   if (typeof html !== 'string' || !html) return out;
 
   // rating: "4.7 out of 5" (Amazon's a-icon-alt text). Clamp to 0..5.
@@ -48,6 +93,10 @@ export function parseProductMeta(html) {
   out.dateFirstAvailable = labelValue(html, 'Date First Available');
   out.rank = rankValue(html);
   out.brand = brandValue(html);
+  // Gallery: the full-res images baked into the ImageBlock state ("hiRes":"...SL1500...").
+  out.gallery = [...new Set((html.match(/"hiRes":"(https:[^"]+?\.(?:jpg|jpeg|png|webp))"/gi) || [])
+    .map((m) => (m.match(/"(https:[^"]+)"/) || [])[1]).filter(Boolean))].slice(0, 8);
+  out.videos = extractVideos(html);
   return out;
 }
 
@@ -85,6 +134,8 @@ export function productDetailFields(meta) {
   if (meta.dateFirstAvailable) out.dateFirstAvailable = meta.dateFirstAvailable;
   if (meta.rank) out.rank = meta.rank;
   if (meta.brand) out.brand = meta.brand;
+  if (Array.isArray(meta.gallery) && meta.gallery.length) out.gallery = meta.gallery.slice(0, 6);
+  if (Array.isArray(meta.videos) && meta.videos.length) out.videos = meta.videos.slice(0, 2);
   return Object.keys(out).length ? out : null;
 }
 
@@ -96,7 +147,7 @@ export function productDetailFields(meta) {
 // Returns the same shape as parseProductMeta. Fully fail-soft.
 export function extractProductDetail(root = document) {
   const txt = (el) => ((el && el.textContent) || '').replace(/\s+/g, ' ').trim();
-  const out = { rating: null, reviewCount: null, bullets: [], dateFirstAvailable: null, rank: null, brand: null };
+  const out = { rating: null, reviewCount: null, bullets: [], dateFirstAvailable: null, rank: null, brand: null, gallery: [], videos: [] };
 
   for (const el of root.querySelectorAll('#acrPopover, #averageCustomerReviews .a-icon-alt, .a-icon-star .a-icon-alt, .a-icon-alt')) {
     const t = (el.getAttribute && (el.getAttribute('title') || el.getAttribute('aria-label'))) || txt(el);
@@ -135,6 +186,10 @@ export function extractProductDetail(root = document) {
 
   const bl = root.querySelector('#bylineInfo');
   if (bl) { const t = txt(bl); if (t && t.length <= 80) out.brand = t; }
+
+  // Gallery images (from the thumbnail strip) + product videos (from the page state).
+  out.gallery = galleryFromDom(root);
+  try { out.videos = extractVideos((root.documentElement && root.documentElement.innerHTML) || ''); } catch (e) { out.videos = []; }
   return out;
 }
 

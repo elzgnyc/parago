@@ -93,6 +93,11 @@
   .lightbox{position:fixed;inset:0;background:rgba(0,0,0,.85);display:flex;align-items:center;
     justify-content:center;z-index:100;padding:20px;cursor:zoom-out}
   .lightbox img{max-width:100%;max-height:100%;object-fit:contain;border-radius:8px}
+  /* Media strip: product videos + the extra gallery photos, scrolled horizontally. */
+  .media{display:flex;gap:8px;overflow-x:auto;margin-top:10px;padding-bottom:4px;-webkit-overflow-scrolling:touch}
+  .media-img{width:92px;height:92px;object-fit:contain;flex:0 0 auto;border-radius:8px;background:#fff;border:1px solid var(--line);padding:3px;cursor:zoom-in}
+  .media-vid{width:150px;height:92px;flex:0 0 auto;border-radius:8px;background:#000;border:1px solid var(--line)}
+  @media (max-width:420px){.media-img{width:74px;height:74px}.media-vid{width:130px;height:78px}}
   li.excluded{opacity:.42}
   li.excluded .it-title{text-decoration:line-through}
   .num{flex:0 0 auto;width:20px;height:20px;border-radius:50%;background:var(--accent-tint);
@@ -220,6 +225,37 @@
   function productImage(u){
     if (!httpUrl(u) || /^data:/i.test(u)) return null;
     return /(?:media-amazon|images-amazon|ssl-images-amazon)\.com\/images\/I\//i.test(u) ? u : null;
+  }
+  // Amazon media on the /images/S/ path: video posters and the .mp4 renditions live there.
+  function amazonMedia(u){
+    if (!httpUrl(u) || /^data:/i.test(u)) return null;
+    return /(?:media-amazon|images-amazon|ssl-images-amazon)\.com\/images\/[IS]\//i.test(u) ? u : null;
+  }
+  function productVideo(u){ return (amazonMedia(u) && /\.mp4(?:$|\?)/i.test(u)) ? u : null; }
+  // A horizontal media strip for one item: product videos (inline players) then the extra
+  // gallery photos (tap to enlarge via the lightbox). Renders nothing when there is none.
+  function renderMedia(it, body){
+    var d = it && it.details;
+    var imgs = (d && Array.isArray(d.gallery)) ? d.gallery.map(productImage).filter(Boolean) : [];
+    var vids = (d && Array.isArray(d.videos)) ? d.videos.filter(function(v){ return v && productVideo(v.url); }) : [];
+    if (!imgs.length && !vids.length) return;
+    var strip = elt('div', { cls:'media' });
+    vids.forEach(function(v){
+      var vid = document.createElement('video');
+      vid.className = 'media-vid'; vid.controls = true; vid.preload = 'none'; vid.playsInline = true;
+      vid.referrerPolicy = 'no-referrer';
+      var poster = amazonMedia(v.poster); if (poster) vid.poster = poster;
+      vid.src = productVideo(v.url);
+      vid.onerror = function(){ vid.remove(); };
+      strip.appendChild(vid);
+    });
+    imgs.forEach(function(u){
+      var im = elt('img', { cls:'media-img' }); im.alt = ''; im.loading = 'lazy'; im.referrerPolicy = 'no-referrer'; im.src = u;
+      im.onerror = function(){ im.remove(); };
+      im.addEventListener('click', function(){ openLightbox(biggerImage(u)); });
+      strip.appendChild(im);
+    });
+    body.appendChild(strip);
   }
   // Defensive title clean (older requests may carry Amazon's "Opens in a new tab" a11y text).
   function cleanTitle(t){
@@ -373,6 +409,9 @@
       }
       body.appendChild(det);
     }
+
+    // Product photos + videos scraped from the Amazon page, shown inline.
+    renderMedia(it, body);
 
     // Explicit "Open in Amazon app" button (the guardian may want to open/copy it on
     // their phone). Same deep link the title uses; hidden if the shopper turned it off.

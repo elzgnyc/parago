@@ -121,4 +121,58 @@ describe('parseProductMeta detail extraction', () => {
     expect(productDetailFields({ bullets: ['a'], rank: '#5 in Books' }))
       .toEqual({ bullets: ['a'], rank: '#5 in Books' });
   });
+
+  it('productDetailFields carries the gallery + videos (capped)', () => {
+    const out = productDetailFields({
+      gallery: ['u1', 'u2', 'u3', 'u4', 'u5', 'u6', 'u7'],
+      videos: [{ url: 'v1' }, { url: 'v2' }, { url: 'v3' }],
+    });
+    expect(out.gallery).toHaveLength(6); // capped
+    expect(out.videos).toHaveLength(2);  // capped
+  });
+});
+
+// Verified against a real /dp/ DOM (B09FXVQ8WN, 2026-07): #altImages thumbnails carry
+// ._AC_US40_ srcs to upsize, and product videos live in page state as
+// ".../<id>.mp4/productVideoOptimized.mp4" with a paired ".../THUMBNAIL_...JPG" poster.
+describe('gallery + video extraction', () => {
+  it('extractProductDetail: upsized, deduped gallery from #altImages (video thumbs excluded) + videos', () => {
+    document.body.innerHTML = `
+      <div id="altImages"><ul>
+        <li class="item itemNo0 imageThumbnail variant-MAIN"><img src="https://m.media-amazon.com/images/I/51dd84jReKL._AC_US40_.jpg"></li>
+        <li class="item itemNo1 imageThumbnail variant-PT01"><img src="https://m.media-amazon.com/images/I/41lLJtmTH8L._AC_US40_.jpg"></li>
+        <li class="item itemNo2 imageThumbnail variant-PT02"><img src="https://m.media-amazon.com/images/I/41lLJtmTH8L._AC_US40_.jpg"></li>
+        <li class="item videoThumbnail"><img src="https://m.media-amazon.com/images/I/shouldbeignored._AC_US40_.jpg"></li>
+      </ul></div>
+      <script type="a-state">{"videos":[{"url":"https://m.media-amazon.com/images/S/al-na-9d/dbc5154f.mp4/productVideoOptimized.mp4","slate":"https://m.media-amazon.com/images/S/al-na-9d/dbc5154f.mp4/r/THUMBNAIL_360P_FRAME_3_CAPTURE_2.JPG"}]}</script>`;
+    const d = extractProductDetail(document);
+    expect(d.gallery).toEqual([
+      'https://m.media-amazon.com/images/I/51dd84jReKL._AC_SL1200_.jpg',
+      'https://m.media-amazon.com/images/I/41lLJtmTH8L._AC_SL1200_.jpg',
+    ]);
+    expect(d.videos).toEqual([{
+      url: 'https://m.media-amazon.com/images/S/al-na-9d/dbc5154f.mp4/productVideoOptimized.mp4',
+      poster: 'https://m.media-amazon.com/images/S/al-na-9d/dbc5154f.mp4/r/THUMBNAIL_360P_FRAME_3_CAPTURE_2.JPG',
+    }]);
+  });
+
+  it('extractProductDetail: falls back to the hi-res main image when there is no thumbnail strip', () => {
+    document.body.innerHTML = `<div id="imgTagWrapperId"><img id="landingImage" src="https://m.media-amazon.com/images/I/81rRSIKm2TL._AC_SX466_.jpg" data-old-hires="https://m.media-amazon.com/images/I/81rRSIKm2TL._AC_SL1500_.jpg"></div>`;
+    expect(extractProductDetail(document).gallery).toEqual(['https://m.media-amazon.com/images/I/81rRSIKm2TL._AC_SL1500_.jpg']);
+  });
+
+  it('parseProductMeta: gallery from hiRes state + videos from the HTML string', () => {
+    const html = `
+      <script>var d={"colorImages":{"initial":[{"hiRes":"https://m.media-amazon.com/images/I/81rRSIKm2TL._AC_SL1500_.jpg","large":"https://m.media-amazon.com/images/I/51dd84jReKL._AC_.jpg"},{"hiRes":"https://m.media-amazon.com/images/I/71d6-vOQVTL._AC_SL1500_.jpg"}]}};</script>
+      <script>{"url":"https://m.media-amazon.com/images/S/al-na/aaa.mp4/productVideoOptimized.mp4","poster":"https://m.media-amazon.com/images/S/al-na/aaa.mp4/r/THUMBNAIL_1.JPG"}</script>`;
+    const m = parseProductMeta(html);
+    expect(m.gallery).toEqual([
+      'https://m.media-amazon.com/images/I/81rRSIKm2TL._AC_SL1500_.jpg',
+      'https://m.media-amazon.com/images/I/71d6-vOQVTL._AC_SL1500_.jpg',
+    ]);
+    expect(m.videos).toEqual([{
+      url: 'https://m.media-amazon.com/images/S/al-na/aaa.mp4/productVideoOptimized.mp4',
+      poster: 'https://m.media-amazon.com/images/S/al-na/aaa.mp4/r/THUMBNAIL_1.JPG',
+    }]);
+  });
 });
