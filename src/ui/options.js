@@ -175,9 +175,17 @@ function applyTheme(theme) {
   const t = (theme === 'dark' || theme === 'amoled') ? theme : 'light';
   document.documentElement.setAttribute('data-theme', t);
 }
-// The header toggle cycles Light -> Dark -> AMOLED -> Light (tap Dark again for AMOLED).
-function nextTheme(cur) {
-  return cur === 'light' ? 'dark' : (cur === 'dark' ? 'amoled' : 'light');
+// Theme is a Light/Dark segmented pill (like the filter pills). Tapping Dark again while
+// already Dark deepens to AMOLED; tapping Light while already Light does nothing.
+function paintThemePill() {
+  const cur = document.documentElement.getAttribute('data-theme') || 'light';
+  const lb = document.querySelector('[data-theme-choice="light"]');
+  const db = document.querySelector('[data-theme-choice="dark"]');
+  if (!lb || !db) return;
+  const dark = cur === 'dark' || cur === 'amoled';
+  lb.classList.toggle('is-active', cur === 'light');
+  db.classList.toggle('is-active', dark);
+  db.textContent = cur === 'amoled' ? t('theme_amoled') : t('theme_dark');
 }
 
 // ── Detail level (Simple / Advanced) ─────────────────────────────────────────────
@@ -417,6 +425,7 @@ function load(settings) {
   applyI18n();
   refreshSelects();
   applyTheme(settings.theme);
+  paintThemePill();
   applyAdvancedVisibility(settings.advancedMode);
   applyMethodVisibility(settings.deliveryMethod || 'email');
   applyGuardianModeVisibility(settings.guardianMode);
@@ -471,6 +480,7 @@ async function save() {
   setLang(patch.lang);
   applyI18n();
   refreshSelects();
+  paintThemePill();
   flash();
   updateDirty();
   markChanged();
@@ -563,11 +573,15 @@ async function main() {
     });
   }
 
-  const themeBtn = document.getElementById('themeToggle');
-  if (themeBtn) themeBtn.addEventListener('click', async () => {
-    const next = nextTheme(document.documentElement.getAttribute('data-theme') || 'light');
-    applyTheme(next);
-    await setSettings({ theme: next });
+  const themeLight = document.querySelector('[data-theme-choice="light"]');
+  const themeDark = document.querySelector('[data-theme-choice="dark"]');
+  if (themeLight) themeLight.addEventListener('click', async () => {
+    applyTheme('light'); await setSettings({ theme: 'light' }); paintThemePill();
+  });
+  if (themeDark) themeDark.addEventListener('click', async () => {
+    const cur = document.documentElement.getAttribute('data-theme') || 'light';
+    const next = cur === 'dark' ? 'amoled' : 'dark'; // Dark again (from Dark) -> AMOLED; from AMOLED back to Dark
+    applyTheme(next); await setSettings({ theme: next }); paintThemePill();
   });
 
   const tgc = document.getElementById('tgConnected');
