@@ -524,9 +524,10 @@
 
     // Ship-to + payment (partial only) captured at checkout — context up top, before the
     // items, so the guardian sees where it's going and which card (no sensitive detail).
-    if (data.shipTo || data.payment){
+    var shipWho = [data.shipName, data.shipAddress].filter(Boolean).join(' · ') || data.shipTo;
+    if (shipWho || data.payment){
       var ship = elt('div', { cls:'shipinfo' });
-      if (data.shipTo){ var s1 = elt('span'); s1.appendChild(document.createTextNode('Ship to ')); s1.appendChild(elt('b', { text: String(data.shipTo) })); ship.appendChild(s1); }
+      if (shipWho){ var s1 = elt('span'); s1.appendChild(document.createTextNode('Ship to ')); s1.appendChild(elt('b', { text: String(shipWho) })); ship.appendChild(s1); }
       if (data.payment){ var s2 = elt('span'); s2.appendChild(document.createTextNode('Pay ')); s2.appendChild(elt('b', { text: String(data.payment) })); ship.appendChild(s2); }
       app.appendChild(ship);
     }

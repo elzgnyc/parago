@@ -40,13 +40,14 @@ export class SupabaseRelay {
     this.pollMs = pollMs || 3000;
   }
 
-  async submitRequest({ total, items, breakdown, shipTo, payment }) {
+  async submitRequest({ total, items, breakdown, shipTo, payment, shipName, shipAddress }) {
     const body = await this.send(`${this.baseUrl}/create-request`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         total, items: items || [], breakdown: breakdown || null,
         shipTo: shipTo || null, payment: payment || null,
+        shipName: shipName || null, shipAddress: shipAddress || null,
         timezone: this.timezone || null,
         theme: this.theme || null,
         appButton: this.appButton !== false,

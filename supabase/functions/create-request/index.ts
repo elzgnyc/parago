@@ -24,6 +24,7 @@ Deno.serve(async (req) => {
     total = null, items = [], deliveryMethod = 'email',
     guardianEmail = null, guardianName = null, telegramLinkCode = null,
     githubUsername = null, breakdown = null, shipTo = null, payment = null, timezone = null, theme = null, appButton = null,
+    shipName = null, shipAddress = null,
   } = body ?? {};
 
   const supabase = createClient(
@@ -84,6 +85,8 @@ Deno.serve(async (req) => {
   if (typeof timezone === 'string' && /^[A-Za-z0-9_+\-/]{1,64}$/.test(timezone)) extra.timezone = timezone;
   if (theme === 'light' || theme === 'dark' || theme === 'amoled') extra.theme = theme;
   if (typeof appButton === 'boolean') extra.app_button = appButton;
+  if (typeof shipName === 'string' && shipName) extra.ship_name = shipName.slice(0, 80);
+  if (typeof shipAddress === 'string' && shipAddress) extra.ship_address = shipAddress.slice(0, 160);
   if (Object.keys(extra).length) {
     try { await supabase.from('purchase_requests').update(extra).eq('id', data.id); } catch { /* ignore */ }
   }

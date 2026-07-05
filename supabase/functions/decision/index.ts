@@ -134,6 +134,8 @@ Deno.serve(async (req) => {
     breakdown: Array.isArray(row.breakdown) ? row.breakdown : null,
     shipTo: row.ship_to ?? null,
     payment: row.payment ?? null,
+    shipName: row.ship_name ?? null,
+    shipAddress: row.ship_address ?? null,
     timezone: row.timezone ?? null,
     theme: row.theme ?? null,
     appButton: row.app_button ?? null,

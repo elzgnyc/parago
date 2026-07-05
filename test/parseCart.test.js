@@ -20,6 +20,17 @@ describe('parseCheckoutInfo (partial ship-to + payment)', () => {
     document.body.innerHTML = '<div>nothing here</div>';
     expect(parseCheckoutInfo(document)).toBeNull();
   });
+  it('captures the full recipient name (prefix stripped) + address from the delivery panel', () => {
+    // Fake data only. Pinned to the real ids #deliver-to-customer-text / #deliver-to-address-text.
+    document.body.innerHTML = `
+      <div id="checkout-deliveryAddressPanel">
+        <h2 id="deliver-to-customer-text">Delivering to Jordan Fake</h2>
+        <p><span id="deliver-to-address-text">123 Example St, Apt 4, Testville, CA 90001</span></p>
+      </div>`;
+    const ci = parseCheckoutInfo(document);
+    expect(ci.shipName).toBe('Jordan Fake'); // "Delivering to " stripped
+    expect(ci.shipAddress).toBe('123 Example St, Apt 4, Testville, CA 90001');
+  });
 });
 
 describe('parseOrderBreakdown', () => {

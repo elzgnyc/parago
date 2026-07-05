@@ -87,6 +87,19 @@ function itemImageId(u) {
   const m = String(u || '').match(/\/images\/I\/([^./]+)\./);
   return m ? m[1] : null;
 }
+// Ship-to fields for the request. Partial (City, ST ZIP) + payment always; the FULL name +
+// street address ONLY when the shopper opted in (settings.fullShipTo, default off), so the
+// approver never gets the full address unless the shopper chose to share it.
+function shipFields(ci, settings) {
+  const c = ci || {};
+  const full = !!(settings && settings.fullShipTo);
+  return {
+    shipTo: c.shipTo || null,
+    payment: c.payment || null,
+    shipName: full ? (c.shipName || null) : null,
+    shipAddress: full ? (c.shipAddress || null) : null,
+  };
+}
 // Gift visibility is opt-in (settings.showGift, default off). When ON, read which lines the
 // shopper marked as a gift on the CHECKOUT page and flag the matching items (by title or
 // image id). When OFF, strip any gift flag before the request leaves the device, so the
@@ -222,7 +235,7 @@ export async function engage(settings, parsed) {
     if (!req) {
       const enrichedItems = applyGifts(await enrichItems(parsed.items), settings, document);
       const ci = parseCheckoutInfo(document) || {};
-      const id = await relay.submitRequest({ total: parsed.total, items: enrichedItems, breakdown: parsed.breakdown, shipTo: ci.shipTo, payment: ci.payment });
+      const id = await relay.submitRequest({ total: parsed.total, items: enrichedItems, breakdown: parsed.breakdown, ...shipFields(ci, settings) });
       req = await relay.getRequest(id);
     }
   } catch (e) {
@@ -429,7 +442,7 @@ async function onPlaceOrderPress(ev) {
       const enriched = applyGifts(await enrichItems(items), armedSettings, document);
       const ci = parseCheckoutInfo(document) || {};
       const now = Date.now();
-      const id = await relay.submitRequest({ total, items: enriched, breakdown: parsed.breakdown, shipTo: ci.shipTo, payment: ci.payment });
+      const id = await relay.submitRequest({ total, items: enriched, breakdown: parsed.breakdown, ...shipFields(ci, armedSettings) });
       await saveOutstanding([...outstanding, { id, total, createdAt: now }]);
       // Auto-place mode: record an order snapshot keyed by the SAME request id, so a later
       // runPlacementCompletion pass (see run) can claim, re-verify against the live order,

@@ -402,7 +402,7 @@ export function parseOrderBreakdown(root = document) {
 // variants; null when not found. (Selectors are unverified against a live checkout DOM.)
 export function parseCheckoutInfo(root = document) {
   const collapse = (s) => String(s || '').replace(/\s+/g, ' ').trim();
-  let payment = null, shipTo = null;
+  let payment = null, shipTo = null, shipName = null, shipAddress = null;
 
   // Amazon renders it as "Paying with <Card> <last4>" (e.g. "Visa 1234") in a
   // .break-word span, sometimes "<Card> ending in 1234" or "<Card> **** 1234". Match a
@@ -415,7 +415,16 @@ export function parseCheckoutInfo(root = document) {
   const cs = collapse(addrScope.textContent).match(/([A-Z][A-Za-z.\-' ]{1,28}),\s*([A-Z]{2})\s+(\d{5})(?:-\d{4})?\b/);
   if (cs) shipTo = `${cs[1].trim()}, ${cs[2]} ${cs[3]}`;
 
-  return (payment || shipTo) ? { shipTo, payment } : null;
+  // Full recipient + delivery address from the checkout delivery panel. shipName is the
+  // "Delivering to <name>" heading (prefix stripped); shipAddress is the address line.
+  // Pinned to real /gp/buy/ ids (2026-07). The CALLER only sends these when the shopper
+  // opts in (settings.fullShipTo); by themselves they never leave the device.
+  const nameEl = root.querySelector('#deliver-to-customer-text');
+  if (nameEl) { const n = collapse(nameEl.textContent).replace(/^(?:deliver(?:ing)?\s+to|ship(?:ping)?\s+to)\s*:?\s*/i, ''); if (n) shipName = n.slice(0, 60); }
+  const addrEl = root.querySelector('#deliver-to-address-text');
+  if (addrEl) { const a = collapse(addrEl.textContent); if (a) shipAddress = a.slice(0, 140); }
+
+  return (payment || shipTo || shipName || shipAddress) ? { shipTo, payment, shipName, shipAddress } : null;
 }
 
 export function parseCart(root = document) {
