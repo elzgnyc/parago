@@ -25,7 +25,7 @@ function bgSend(url, options) {
 }
 
 export class SupabaseRelay {
-  constructor({ baseUrl, guardianEmail, guardianName = null, deliveryMethod = 'email', telegramLinkCode = null, githubUsername = null, timezone = null, send, store, pollMs } = {}) {
+  constructor({ baseUrl, guardianEmail, guardianName = null, deliveryMethod = 'email', telegramLinkCode = null, githubUsername = null, timezone = null, theme = null, send, store, pollMs } = {}) {
     this.baseUrl = String(baseUrl || '').replace(/\/$/, '');
     this.guardianEmail = guardianEmail;
     this.guardianName = guardianName;
@@ -33,6 +33,7 @@ export class SupabaseRelay {
     this.telegramLinkCode = telegramLinkCode;
     this.githubUsername = githubUsername;
     this.timezone = timezone;
+    this.theme = theme;
     this.send = send || bgSend;
     this.store = store || chromeStore();
     this.pollMs = pollMs || 3000;
@@ -46,6 +47,7 @@ export class SupabaseRelay {
         total, items: items || [], breakdown: breakdown || null,
         shipTo: shipTo || null, payment: payment || null,
         timezone: this.timezone || null,
+        theme: this.theme || null,
         deliveryMethod: this.deliveryMethod,
         guardianEmail: this.guardianEmail, guardianName: this.guardianName,
         telegramLinkCode: this.telegramLinkCode,

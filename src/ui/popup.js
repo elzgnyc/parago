@@ -78,7 +78,8 @@ async function togglePower() {
 }
 
 function applyTheme(theme) {
-  document.documentElement.setAttribute('data-theme', theme === 'dark' ? 'dark' : 'light');
+  const t = (theme === 'dark' || theme === 'amoled') ? theme : 'light';
+  document.documentElement.setAttribute('data-theme', t);
 }
 
 async function main() {

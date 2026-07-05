@@ -42,6 +42,21 @@
 }
 :root[data-theme="dark"] input.switch { background: #3a4550; }
 
+/* AMOLED: pure-black canvas for OLED screens (one more tap past Dark). Same accents. */
+:root[data-theme="amoled"] {
+  --bg: #000000;
+  --surface: #0d1013;
+  --ink: #f0ece4;
+  --ink-soft: #93999f;
+  --line: #23282e;
+  --accent: #3d9be0;
+  --accent-strong: #6bb4ea;
+  --accent-tint: #10283c;
+  --danger: #e5776e;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 10px 30px rgba(0, 0, 0, 0.6);
+}
+:root[data-theme="amoled"] input.switch { background: #2a333d; }
+
 /* Moon/sun theme toggle in the header. */
 .theme-toggle {
   flex: 0 0 auto; width: 38px; height: 38px; padding: 0;
@@ -53,8 +68,10 @@
 .theme-toggle:hover { color: var(--accent); border-color: var(--accent); }
 .theme-toggle .icon-sun { display: none; }
 .theme-toggle .icon-moon { display: block; }
-:root[data-theme="dark"] .theme-toggle .icon-moon { display: none; }
-:root[data-theme="dark"] .theme-toggle .icon-sun { display: block; }
+:root[data-theme="dark"] .theme-toggle .icon-moon,
+:root[data-theme="amoled"] .theme-toggle .icon-moon { display: none; }
+:root[data-theme="dark"] .theme-toggle .icon-sun,
+:root[data-theme="amoled"] .theme-toggle .icon-sun { display: block; }
 .brand-controls { display: flex; align-items: center; gap: 12px; }
 
 * { box-sizing: border-box; }

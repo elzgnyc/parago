@@ -88,9 +88,14 @@ function buildSegs() {
   }
 }
 
-// ── Theme (light / dark) ─────────────────────────────────────────────────────────
+// ── Theme (light / dark / amoled) ────────────────────────────────────────────────
 function applyTheme(theme) {
-  document.documentElement.setAttribute('data-theme', theme === 'dark' ? 'dark' : 'light');
+  const t = (theme === 'dark' || theme === 'amoled') ? theme : 'light';
+  document.documentElement.setAttribute('data-theme', t);
+}
+// The header toggle cycles Light -> Dark -> AMOLED -> Light (tap Dark again for AMOLED).
+function nextTheme(cur) {
+  return cur === 'light' ? 'dark' : (cur === 'dark' ? 'amoled' : 'light');
 }
 
 // ── Detail level (Simple / Advanced) ─────────────────────────────────────────────
@@ -472,7 +477,7 @@ async function main() {
 
   const themeBtn = document.getElementById('themeToggle');
   if (themeBtn) themeBtn.addEventListener('click', async () => {
-    const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    const next = nextTheme(document.documentElement.getAttribute('data-theme') || 'light');
     applyTheme(next);
     await setSettings({ theme: next });
   });

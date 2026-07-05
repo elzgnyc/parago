@@ -135,5 +135,6 @@ Deno.serve(async (req) => {
     shipTo: row.ship_to ?? null,
     payment: row.payment ?? null,
     timezone: row.timezone ?? null,
+    theme: row.theme ?? null,
   });
 });

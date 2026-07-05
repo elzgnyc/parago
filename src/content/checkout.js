@@ -89,6 +89,7 @@ function buildRelay(settings) {
       telegramLinkCode: settings.telegramLinkCode || null,
       githubUsername: settings.githubUsername || null,
       timezone: resolveTimezone(settings),
+      theme: settings.theme || null,
     });
   }
   return new MockRelay();

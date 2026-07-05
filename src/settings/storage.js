@@ -19,7 +19,7 @@ export const DEFAULTS = {
   functionsBaseUrl: '', // Supabase Edge Functions URL for email approval; set in Options (not code). Blank = local popup approval. Not a secret (it is the public project URL).
   githubUsername: '',   // GitHub user hosting approve.html; the approval link becomes https://<user>.github.io/parago/approve.html. Blank = server default. Advanced.
   advancedMode: false,  // Options page detail level: false = Simple (hides advanced/developer controls)
-  theme: 'light',       // UI theme: 'light' | 'dark' (moon/sun toggle in Options)
+  theme: 'light',       // UI theme: 'light' | 'dark' | 'amoled' (header toggle cycles all three)
   timezone: '',         // IANA zone for timestamps shown to the guardian; '' = the device's zone (auto)
   lang: 'en',           // 'en' | 'vi'
   devMode: false,       // show the on-page Developer test panel (no real purchases)
