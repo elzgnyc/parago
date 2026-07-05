@@ -105,6 +105,26 @@ function shipFields(ci, settings) {
     shipAddress: full ? (c.shipAddress || null) : null,
   };
 }
+
+// Heads-up for a purchase that did NOT need approval (settings.notifyUnheld): a buttonless
+// Telegram FYI. Fire-and-forget — must never delay or block the shopper's checkout. Sent
+// via the background worker, so it completes even after the page redirects.
+let lastNotifyAt = 0;
+function maybeNotifyUnheld(total, root) {
+  if (!armedSettings || !armedSettings.notifyUnheld) return;
+  if ((armedSettings.deliveryMethod || 'email') !== 'telegram') return; // heads-up goes to Telegram
+  const now = Date.now();
+  if (now - lastNotifyAt < 1500) return; // dedupe the pointerdown+click pair for one press
+  lastNotifyAt = now;
+  (async () => {
+    try {
+      const { items } = await bestKnownPurchase(root);
+      const enriched = applyGifts(await enrichItems(items), armedSettings, root);
+      const ci = parseCheckoutInfo(root) || {};
+      await relay.notify({ total, items: enriched, breakdown: parseCart(root).breakdown, ...shipFields(ci, armedSettings) });
+    } catch (e) { /* best effort: an FYI must never affect checkout */ }
+  })();
+}
 // Gift visibility is opt-in (settings.showGift, default off). When ON, read which lines the
 // shopper marked as a gift on the CHECKOUT page and flag the matching items (by title or
 // image id). When OFF, strip any gift flag before the request leaves the device, so the
@@ -413,7 +433,7 @@ async function onPlaceOrderPress(ev) {
   const parsed = parseCart(document);
   const total = finalTotal != null ? finalTotal : (parsed.total != null ? parsed.total : armedSnapshotTotal);
 
-  if (!shouldRequireApproval(armedSettings, total)) return; // under limit / off → let Amazon place
+  if (!shouldRequireApproval(armedSettings, total)) { maybeNotifyUnheld(total, document); return; } // under limit → let Amazon place, optionally FYI
 
   // Guardian already approved this exact total (recorded by reconcileApprovals on a
   // prior visit): the gate is unlocked for ONE placement, so consume it and let the

@@ -65,6 +65,19 @@ export class SupabaseRelay {
     return id;
   }
 
+  // Heads-up for a purchase that did NOT need approval: a buttonless Telegram notification.
+  // Fire-and-forget; no id/token comes back. Telegram delivery only.
+  async notify({ total, items, breakdown, shipTo, payment, shipName, shipAddress }) {
+    await this.send(`${this.baseUrl}/create-request`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        notifyOnly: true, total, items: items || [], breakdown: breakdown || null,
+        shipTo: shipTo || null, payment: payment || null, shipName: shipName || null, shipAddress: shipAddress || null,
+        timezone: this.timezone || null, deliveryMethod: 'telegram', telegramLinkCode: this.telegramLinkCode,
+      }),
+    });
+  }
+
   async getRequest(id) {
     const body = await this.send(`${this.baseUrl}/get-status?id=${id}`);
     if (!body || body.error) return null;

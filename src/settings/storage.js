@@ -14,6 +14,7 @@ export const DEFAULTS = {
   autoPlace: false,     // false = unlock-only (shopper clicks Place order after approval); true = Parago places it automatically once approved
   showGift: false,      // show the approver when an item is marked as a gift (only if marked); default off
   fullShipTo: false,    // send the FULL delivery name + address to the approver (default off: only City, ST ZIP)
+  notifyUnheld: false,  // Telegram: also send a buttonless heads-up for purchases that did NOT need approval
   appButton: true,      // show the per-item "Open in Amazon app" button on the approval page; default on
   guardianLimit: 50,    // approval required above this total when over_limit
   guardianName: '',     // label for whoever approves

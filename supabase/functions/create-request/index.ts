@@ -24,7 +24,7 @@ Deno.serve(async (req) => {
     total = null, items = [], deliveryMethod = 'email',
     guardianEmail = null, guardianName = null, telegramLinkCode = null,
     githubUsername = null, breakdown = null, shipTo = null, payment = null, timezone = null, theme = null, appButton = null,
-    shipName = null, shipAddress = null,
+    shipName = null, shipAddress = null, notifyOnly = false,
   } = body ?? {};
 
   const supabase = createClient(
@@ -61,6 +61,31 @@ Deno.serve(async (req) => {
   if (perRecip.error || perDay.error) return json({ error: 'rate_check_failed' }, 503); // fail closed
   if ((perRecip.count ?? 0) >= 10) return json({ error: 'rate_limited' }, 429);   // per-recipient/hour
   if ((perDay.count ?? 0) >= 250) return json({ error: 'daily_cap' }, 429);        // global/day
+
+  // Notify-only: a buttonless heads-up for a purchase that did NOT need approval (Telegram
+  // only). No decision to make, so no token is returned; a row (status 'notified') is
+  // written only so the rate guard counts it.
+  if (notifyOnly) {
+    if (deliveryMethod !== 'telegram' || !telegramChatId) return json({ ok: true });
+    const { data: nrow } = await supabase.from('purchase_requests')
+      .insert({ token: makeToken(), total, items, telegram_chat_id: telegramChatId, status: 'notified' })
+      .select('id').single();
+    if (nrow) {
+      const nx: Record<string, unknown> = {};
+      if (Array.isArray(breakdown) && breakdown.length) nx.breakdown = breakdown;
+      if (typeof shipTo === 'string' && shipTo) nx.ship_to = shipTo.slice(0, 80);
+      if (typeof payment === 'string' && payment) nx.payment = payment.slice(0, 40);
+      if (typeof shipName === 'string' && shipName) nx.ship_name = shipName.slice(0, 80);
+      if (typeof shipAddress === 'string' && shipAddress) nx.ship_address = shipAddress.slice(0, 160);
+      if (Object.keys(nx).length) { try { await supabase.from('purchase_requests').update(nx).eq('id', nrow.id); } catch { /* ignore */ } }
+    }
+    const botBase = `https://api.telegram.org/bot${Deno.env.get('TELEGRAM_BOT_TOKEN')}`;
+    const { sends } = buildTelegramMessage({ chatId: telegramChatId, total, items, notifyOnly: true });
+    for (const s of sends) {
+      await fetch(`${botBase}/${s.method}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(s.payload) });
+    }
+    return json({ ok: true, notified: true });
+  }
 
   const token = makeToken();
   const { data, error } = await supabase

@@ -71,6 +71,13 @@ describe('buildTelegramMessage', () => {
     expect(kb[0][1].text).toBe('Reject');
     expect(kb[1][0].text).toBe('See full details');
   });
+  it('notifyOnly builds a buttonless heads-up (no Approve/Reject, no See details)', () => {
+    const m = buildTelegramMessage({ ...base, notifyOnly: true });
+    expect(m.sends.every((s) => !s.payload.reply_markup)).toBe(true); // no buttons on any send
+    const text = m.sends.map((s) => s.payload.caption ?? s.payload.text ?? '').join('\n');
+    expect(text).toContain('went through');
+    expect(text).not.toContain('needs your approval');
+  });
   it('falls back to a single sendMessage when no item has an http image', () => {
     const m = buildTelegramMessage({ ...base, items: [{ title: 'No image item', price: 5 }] });
     expect(m.sends).toHaveLength(1);

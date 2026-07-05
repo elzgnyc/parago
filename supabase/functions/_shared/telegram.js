@@ -82,7 +82,9 @@ const CAPTION_LIMIT = 1024; // Telegram sendPhoto caption hard limit
 // product photo when an item has an http(s) image; the "See full details" button
 // opens approve.html for the full, rich, tap-through-to-Amazon view. Approve/Reject
 // are inline callback buttons carrying the single-use token.
-export function buildTelegramMessage({ chatId, total, items, link, token }) {
+// notifyOnly = true builds a buttonless heads-up ("a purchase went through") for orders
+// that did NOT need approval — no Approve/Reject, no "See full details", no token.
+export function buildTelegramMessage({ chatId, total, items, link, token, notifyOnly = false }) {
   const list = Array.isArray(items) ? items : [];
   const totalStr = fmtMoney(total);
 
@@ -90,7 +92,7 @@ export function buildTelegramMessage({ chatId, total, items, link, token }) {
   // are numbered, one per block, with an indented price/qty/rating line, so a large
   // cart stays readable. The "See full details" button carries images + full info.
   const shown = list.slice(0, MAX_ITEMS_IN_CAPTION);
-  const parts = ['A purchase needs your approval.'];
+  const parts = [notifyOnly ? 'A purchase went through (no approval needed).' : 'A purchase needs your approval.'];
   if (totalStr) parts.push('', `Total: ${totalStr}`);
   parts.push('');
   shown.forEach((it, i) => {
@@ -111,31 +113,33 @@ export function buildTelegramMessage({ chatId, total, items, link, token }) {
   let text = parts.join('\n');
   if (text.length > CAPTION_LIMIT) text = text.slice(0, CAPTION_LIMIT - 3) + '...';
 
-  const reply_markup = {
+  // Buttonless in notify-only mode; otherwise Approve/Reject + See full details.
+  const reply_markup = notifyOnly ? null : {
     inline_keyboard: [
       [{ text: 'Approve', callback_data: 'a:' + token }, { text: 'Reject', callback_data: 'r:' + token }],
       [{ text: 'See full details', url: link }],
     ],
   };
+  const withMarkup = (payload) => (reply_markup ? { ...payload, reply_markup } : payload);
 
   // One photo per item that has a usable product image (Telegram media group: 2..10).
   const photos = shown.map((it) => it && it.image).filter(isProductPhoto).slice(0, 10);
 
   // Returns an ordered list of Bot API calls the Edge Function sends in sequence.
   // A media group cannot carry inline buttons, so for 2+ photos we send the album
-  // first and then a separate text message that holds the details + Approve/Reject.
+  // first and then a separate text message that holds the details (+ buttons if any).
   if (photos.length >= 2) {
     return {
       sends: [
         { method: 'sendMediaGroup', payload: { chat_id: chatId, media: photos.map((url) => ({ type: 'photo', media: url })) } },
-        { method: 'sendMessage', payload: { chat_id: chatId, text, reply_markup, disable_web_page_preview: true } },
+        { method: 'sendMessage', payload: withMarkup({ chat_id: chatId, text, disable_web_page_preview: true }) },
       ],
     };
   }
   if (photos.length === 1) {
-    return { sends: [{ method: 'sendPhoto', payload: { chat_id: chatId, photo: photos[0], caption: text, reply_markup } }] };
+    return { sends: [{ method: 'sendPhoto', payload: withMarkup({ chat_id: chatId, photo: photos[0], caption: text }) }] };
   }
-  return { sends: [{ method: 'sendMessage', payload: { chat_id: chatId, text, reply_markup, disable_web_page_preview: true } }] };
+  return { sends: [{ method: 'sendMessage', payload: withMarkup({ chat_id: chatId, text, disable_web_page_preview: true }) }] };
 }
 
 // Inline-button callback_data is 'a:<token>' (approve) or 'r:<token>' (reject).
