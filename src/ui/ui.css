@@ -182,11 +182,11 @@ input:focus {
 
 /* Small explanatory hint under a field */
 .field-hint {
-  margin: 5px 0 0; font-size: 13px; line-height: 1.35; color: var(--muted, #667);
+  margin: 5px 0 13px; font-size: 13px; line-height: 1.4; color: var(--muted, #667);
 }
 /* A hint that follows a toggle row belongs to it: tuck it up under the toggle so it isn't
-   marooned in the middle of two settings. */
-.switch-row + .field-hint { margin-top: -2px; }
+   marooned, but keep clear space below so the next field's divider never crosses the text. */
+.switch-row + .field-hint { margin-top: 2px; }
 
 /* Toggle switches */
 .switch-row {
