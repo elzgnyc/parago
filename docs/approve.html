@@ -116,6 +116,7 @@
   .it-facts a{color:var(--accent);text-decoration:none}
   .it-facts a:hover{text-decoration:underline}
   .it-asin{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.74rem}
+  .gift-badge{background:var(--accent-tint);color:var(--accent-strong);font-weight:700;padding:1px 9px;border-radius:999px;font-size:.76rem}
   .it-delivery{margin-top:7px;font-size:.84rem;color:var(--ink)}
   .dv-when{font-weight:600}
   .dv-cost{margin-left:8px;font-weight:700;color:var(--red)}
@@ -370,6 +371,7 @@
       }
     }
     if (it && it.asin) facts.appendChild(elt('span', { cls:'it-asin', text:'ASIN ' + it.asin }));
+    if (it && it.gift) facts.appendChild(elt('span', { cls:'gift-badge', text:'Gift' }));
     if (facts.childNodes.length) body.appendChild(facts);
 
     // Delivery window captured from the cart, plus a live countdown to the order

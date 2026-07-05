@@ -111,7 +111,7 @@ function enhanceSelects() {
 function refreshSelects() { for (const r of enhancedSelects) r.syncLabel(); }
 
 // Settings driven by segmented controls instead of inputs/selects.
-const boolSegs = ['hideSponsored', 'flagLowRating', 'flagFewRatings', 'flagNoReviews', 'flagNonPrime', 'hoverReveal', 'autoPlace', 'devMode'];
+const boolSegs = ['hideSponsored', 'flagLowRating', 'flagFewRatings', 'flagNoReviews', 'flagNonPrime', 'hoverReveal', 'showGift', 'autoPlace', 'devMode'];
 const segKeys = ['deliveryMethod', 'guardianMode', 'mode', ...boolSegs];
 
 const ICON_EMAIL = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>';

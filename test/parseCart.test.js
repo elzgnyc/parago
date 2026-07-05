@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { parseCart, parseCartItems, parseCartTotal, parseDeliveryExpiry, parseOrderBreakdown, parseCheckoutInfo } from '../src/lib/parseCart.js';
+import { parseCart, parseCartItems, parseCartTotal, parseDeliveryExpiry, parseOrderBreakdown, parseCheckoutInfo, parseItemGift } from '../src/lib/parseCart.js';
 
 afterEach(() => { document.body.innerHTML = ''; });
 
@@ -555,5 +555,18 @@ describe('parseCart total tracks the selected items', () => {
       </div>
       <div id="sc-subtotal-amount-activecart"><span class="a-offscreen">$5.00</span></div>`;
     expect(parseCart(document).total).toBe(5);
+  });
+});
+
+describe('parseItemGift (best-effort gift marking)', () => {
+  it('is true for a checked gift checkbox and for explicit gift text', () => {
+    document.body.innerHTML = `<div id="a"><input type="checkbox" name="giftFlag" checked></div>`;
+    expect(parseItemGift(document.getElementById('a'))).toBe(true);
+    document.body.innerHTML = `<div id="b">Qty 1 · This will be a gift</div>`;
+    expect(parseItemGift(document.getElementById('b'))).toBe(true);
+  });
+  it('is false for a normal line (unchecked box, no gift text)', () => {
+    document.body.innerHTML = `<div id="c"><input type="checkbox" name="giftFlag"> Add gift options</div>`;
+    expect(parseItemGift(document.getElementById('c'))).toBe(false);
   });
 });

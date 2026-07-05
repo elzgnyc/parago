@@ -274,6 +274,16 @@ function extractTitle(node) {
   return cleanTitle(node.getAttribute('data-name'));
 }
 
+// Best-effort: did the shopper mark this line as a gift? True only on a clear signal (a
+// checked gift checkbox or explicit "this is/will be a gift" text), so it never
+// false-positives into showing "Gift" on a normal item. Selectors are unverified against
+// a real gifted cart yet, so keep them conservative.
+export function parseItemGift(node) {
+  if (!node) return false;
+  if (node.querySelector('input[type="checkbox"][name*="gift" i]:checked, input[type="checkbox"][id*="gift" i]:checked, [data-gift="true"], [data-is-gift="true"]')) return true;
+  return /\bthis (?:will be|is) a gift\b/i.test(node.textContent || '');
+}
+
 export function parseCartItems(root = document) {
   const searchRoot = activeScope(root);
 
@@ -303,7 +313,8 @@ export function parseCartItems(root = document) {
     const reviewCount = parseItemReviewCount(node);
     const delivery = parseDelivery(node);
     const deliveryExpiry = parseDeliveryExpiry(node.textContent, Date.now());
-    items.push({ asin, title, price, qty, image, url, rating, reviewCount, delivery, deliveryExpiry });
+    const gift = parseItemGift(node);
+    items.push({ asin, title, price, qty, image, url, rating, reviewCount, delivery, deliveryExpiry, ...(gift ? { gift: true } : {}) });
   }
   return items;
 }

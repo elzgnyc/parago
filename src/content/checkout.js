@@ -83,6 +83,17 @@ export async function enrichItems(items, { timeoutMs = 2000 } = {}) {
   }));
 }
 
+// Gift visibility is opt-in (settings.showGift, default off): unless it's on, strip the
+// per-item gift flag before the request leaves the device, so the approver never sees a
+// gift marking the shopper didn't choose to share.
+function applyGiftVisibility(items, settings) {
+  if (settings && settings.showGift) return items || [];
+  return (items || []).map((it) => {
+    if (it && it.gift) { const { gift, ...rest } = it; return rest; }
+    return it;
+  });
+}
+
 function buildRelay(settings) {
   if (shouldUseSupabase(settings, CONFIG)) {
     return new SupabaseRelay({
@@ -197,7 +208,7 @@ export async function engage(settings, parsed) {
     const pending = await relay.listPending();
     req = pickPendingRequest(pending, parsed.total);
     if (!req) {
-      const enrichedItems = await enrichItems(parsed.items);
+      const enrichedItems = applyGiftVisibility(await enrichItems(parsed.items), settings);
       const ci = parseCheckoutInfo(document) || {};
       const id = await relay.submitRequest({ total: parsed.total, items: enrichedItems, breakdown: parsed.breakdown, shipTo: ci.shipTo, payment: ci.payment });
       req = await relay.getRequest(id);
@@ -403,7 +414,7 @@ async function onPlaceOrderPress(ev) {
     const { items } = await bestKnownPurchase(document);
     const outstanding = await getOutstanding();
     if (!outstanding.some((o) => totalsMatch(o.total, total))) {
-      const enriched = await enrichItems(items);
+      const enriched = applyGiftVisibility(await enrichItems(items), armedSettings);
       const ci = parseCheckoutInfo(document) || {};
       const now = Date.now();
       const id = await relay.submitRequest({ total, items: enriched, breakdown: parsed.breakdown, shipTo: ci.shipTo, payment: ci.payment });
