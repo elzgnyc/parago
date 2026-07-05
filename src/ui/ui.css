@@ -404,6 +404,18 @@ label.is-changed::after, .field-label.is-changed::after {
 .stars-control input[type="number"] { width: 72px; font-weight: 600; }
 
 /* Language: a plain row in the footer (not a floating card). */
+/* Developer-mode test-notification section + the sample toast it pops (popup only). */
+.pop-dev { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 6px; }
+.pop-dev-hint { color: var(--ink-soft); font-size: 0.8rem; margin: 0; }
+.toast-host { position: fixed; left: 10px; right: 10px; bottom: 10px; z-index: 100; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+.toast { pointer-events: auto; background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--radius-sm); box-shadow: var(--shadow); padding: 12px 14px; animation: toast-in 0.18s ease-out; }
+.toast-title { font-weight: 700; font-size: 0.9rem; margin: 0 0 3px; }
+.toast-body { color: var(--ink-soft); font-size: 0.82rem; margin: 0 0 9px; }
+.toast-actions { display: flex; gap: 8px; }
+.toast-actions .btn { flex: 1 1 0; padding: 7px 10px; font-size: 0.82rem; }
+.toast-test-tag { font-size: 0.7rem; color: var(--ink-soft); margin: 7px 0 0; text-align: center; }
+@keyframes toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
 .prefs-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; }
 .lang-row { display: flex; align-items: center; gap: 10px; }
 .lang-row label { font-weight: 600; }

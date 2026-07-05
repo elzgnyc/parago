@@ -19,6 +19,12 @@
     <div id="pending"></div>
   </section>
 
+  <section class="pop-dev" id="devSection" hidden>
+    <button id="devToastBtn" class="btn btn-secondary" type="button" data-i18n="dev_test_toast_btn">Send test notification</button>
+    <p class="pop-dev-hint" data-i18n="dev_test_toast_hint">Preview the toast a guardian sees. Nothing is sent.</p>
+  </section>
+  <div id="toastHost" class="toast-host" aria-live="polite"></div>
+
   <script type="module" src="popup.js"></script>
 </body>
 </html>

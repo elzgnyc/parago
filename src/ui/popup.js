@@ -82,6 +82,33 @@ function applyTheme(theme) {
   document.documentElement.setAttribute('data-theme', t);
 }
 
+// Developer mode only: pop a sample guardian-approval toast so whoever is on the device
+// can see exactly what a real notification looks like. Purely a preview — nothing is sent.
+function showTestToast() {
+  const host = document.getElementById('toastHost');
+  if (!host) return;
+  host.textContent = '';
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  const title = document.createElement('p'); title.className = 'toast-title'; title.textContent = t('dev_toast_title');
+  const body = document.createElement('p'); body.className = 'toast-body'; body.textContent = t('dev_toast_body');
+  const actions = document.createElement('div'); actions.className = 'toast-actions';
+  const ok = document.createElement('button'); ok.type = 'button'; ok.className = 'btn btn-approve'; ok.textContent = t('approve');
+  const no = document.createElement('button'); no.type = 'button'; no.className = 'btn btn-reject'; no.textContent = t('reject');
+  const dismiss = () => toast.remove();
+  ok.addEventListener('click', dismiss); no.addEventListener('click', dismiss);
+  actions.append(ok, no);
+  const tag = document.createElement('p'); tag.className = 'toast-test-tag'; tag.textContent = t('dev_toast_tag');
+  toast.append(title, body, actions, tag);
+  host.appendChild(toast);
+  setTimeout(() => { if (toast.isConnected) toast.remove(); }, 6000);
+}
+
+function toggleDevSection(on) {
+  const dev = document.getElementById('devSection');
+  if (dev) dev.hidden = !on;
+}
+
 async function main() {
   const settings = await getSettings();
   setLang(settings.lang);
@@ -93,8 +120,12 @@ async function main() {
   const power = document.getElementById('power');
   power.addEventListener('change', togglePower);
   renderPower(settings);
+  // Developer mode: expose the "Send test notification" preview button.
+  toggleDevSection(settings.devMode);
+  const devBtn = document.getElementById('devToastBtn');
+  if (devBtn) devBtn.addEventListener('click', showTestToast);
   // Reflect changes made elsewhere (e.g. the Options page) while the popup is open.
-  onSettingsChanged(() => getSettings().then((s) => { renderPower(s); applyTheme(s.theme); }));
+  onSettingsChanged(() => getSettings().then((s) => { renderPower(s); applyTheme(s.theme); toggleDevSection(s.devMode); }));
   document.getElementById('openSettings').addEventListener('click', () => {
     chrome.runtime.openOptionsPage();
   });
