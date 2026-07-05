@@ -84,6 +84,7 @@ function enhanceSelect(select) {
     }
   };
   const open = () => {
+    closeOtherSelects(select); // only one dropdown open at a time
     build(); list.hidden = false; btn.setAttribute('aria-expanded', 'true');
     // These dropdowns sit near the page bottom. Open UPWARD when the button is low in the
     // viewport so the full list is visible with no manual scrolling; else downward.
@@ -108,7 +109,11 @@ function enhanceSelect(select) {
   document.addEventListener('click', (e) => { if (!wrap.contains(e.target)) close(); });
 
   syncLabel();
-  enhancedSelects.push({ select, syncLabel });
+  enhancedSelects.push({ select, syncLabel, close });
+}
+// Close every open dropdown except the one being opened, so two are never open at once.
+function closeOtherSelects(except) {
+  for (const r of enhancedSelects) if (r.select !== except) r.close();
 }
 function enhanceSelects() {
   enhanceSelect(document.getElementById('lang'));
