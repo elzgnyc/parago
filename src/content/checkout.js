@@ -1,5 +1,6 @@
 import { getSettings, resolveTimezone } from '../settings/storage.js';
-import { setLang } from '../i18n/i18n.js';
+import { setLang, t } from '../i18n/i18n.js';
+import { showApprovalToast } from './approvalToast.js';
 import { parseCart, parseCheckoutInfo, parseCheckoutGifts } from '../lib/parseCart.js';
 import { productDetailFields } from '../lib/parseProduct.js';
 import { shouldRequireApproval } from '../lib/guardianTrigger.js';
@@ -27,6 +28,10 @@ const TOTAL_EPSILON = 0.005;
 const SHOP_URL = 'https://www.amazon.com/';
 let navigate = (url) => { try { window.location.assign(url); } catch (e) { /* jsdom: no-op */ } };
 export function _setNavigateForTest(fn) { navigate = fn; }
+// Delay before the unlock-mode redirect, so the "sent for approval" toast is visible
+// first. Overridable in tests (set to 0 for a synchronous redirect).
+let redirectDelayMs = 1500;
+export function _setRedirectDelayForTest(ms) { redirectDelayMs = ms; }
 
 // Relay is swappable. Built from settings in run() (see buildRelay). Tests may
 // override via the exported setter.
@@ -458,9 +463,13 @@ async function onPlaceOrderPress(ev) {
     // have been sent (offline); the shopper can retry. Nothing buys without approval.
     console.error('[parago] approval request failed:', e);
   }
-  // Unlock-only: send the shopper back to shopping (their OWN next click completes it).
-  // Auto-place: stay on the checkout page so the poll in run() can complete it on approval.
-  if (!armedSettings.autoPlace) navigate(SHOP_URL);
+  // Unlock-only: show the shopper the on-page "sent for approval" notification (below the
+  // Amazon logo), then send them back to shopping (their OWN next click completes it once
+  // approved). Auto-place stays on the checkout page so the poll can complete it.
+  if (!armedSettings.autoPlace) {
+    try { showApprovalToast({ title: t('toast_sent_title'), body: t('toast_sent_body') }); } catch (e) { /* toast is best-effort */ }
+    setTimeout(() => navigate(SHOP_URL), redirectDelayMs);
+  }
 }
 
 export function armPlaceOrderIntercept(settings, approvals = []) {

@@ -4,7 +4,7 @@
 // poll can complete the order in place. Unlock mode (default) must be byte-for-byte the
 // same as before: redirect to shopping, no placement record.
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { armPlaceOrderIntercept, reconcileApprovals, _setRelayForTest, _setNavigateForTest, _resetForTest } from '../src/content/checkout.js';
+import { armPlaceOrderIntercept, reconcileApprovals, _setRelayForTest, _setNavigateForTest, _resetForTest, _setRedirectDelayForTest } from '../src/content/checkout.js';
 
 const SHOP_URL = 'https://www.amazon.com/';
 let store, navTo;
@@ -21,6 +21,7 @@ beforeEach(() => {
     },
   };
   _setNavigateForTest((u) => { navTo = u; });
+  _setRedirectDelayForTest(0);
 });
 afterEach(() => { _resetForTest(); document.body.innerHTML = ''; delete global.chrome; });
 

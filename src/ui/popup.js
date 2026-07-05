@@ -82,26 +82,16 @@ function applyTheme(theme) {
   document.documentElement.setAttribute('data-theme', t);
 }
 
-// Developer mode only: pop a sample guardian-approval toast so whoever is on the device
-// can see exactly what a real notification looks like. Purely a preview — nothing is sent.
+// Developer-mode preview: ask the content script on the active Amazon tab to show Parago's
+// on-page approval notification (the toast below the Amazon logo), so the shopper sees
+// exactly what it looks like. Nothing is sent; no order is placed.
 function showTestToast() {
-  const host = document.getElementById('toastHost');
-  if (!host) return;
-  host.textContent = '';
-  const toast = document.createElement('div');
-  toast.className = 'toast';
-  const title = document.createElement('p'); title.className = 'toast-title'; title.textContent = t('dev_toast_title');
-  const body = document.createElement('p'); body.className = 'toast-body'; body.textContent = t('dev_toast_body');
-  const actions = document.createElement('div'); actions.className = 'toast-actions';
-  const ok = document.createElement('button'); ok.type = 'button'; ok.className = 'btn btn-approve'; ok.textContent = t('approve');
-  const no = document.createElement('button'); no.type = 'button'; no.className = 'btn btn-reject'; no.textContent = t('reject');
-  const dismiss = () => toast.remove();
-  ok.addEventListener('click', dismiss); no.addEventListener('click', dismiss);
-  actions.append(ok, no);
-  const tag = document.createElement('p'); tag.className = 'toast-test-tag'; tag.textContent = t('dev_toast_tag');
-  toast.append(title, body, actions, tag);
-  host.appendChild(toast);
-  setTimeout(() => { if (toast.isConnected) toast.remove(); }, 6000);
+  try {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      const id = tabs && tabs[0] && tabs[0].id;
+      if (id != null) { try { chrome.tabs.sendMessage(id, { type: 'parago_preview_toast' }); } catch (e) { /* no receiver */ } }
+    });
+  } catch (e) { /* no chrome.tabs */ }
 }
 
 function toggleDevSection(on) {

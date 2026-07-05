@@ -5,7 +5,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   armPlaceOrderIntercept, reconcileApprovals,
-  _setRelayForTest, _setNavigateForTest, _resetForTest,
+  _setRelayForTest, _setNavigateForTest, _resetForTest, _setRedirectDelayForTest,
 } from '../src/content/checkout.js';
 
 const SHOP_URL = 'https://www.amazon.com/';
@@ -30,6 +30,7 @@ beforeEach(() => {
     },
   };
   _setNavigateForTest((u) => { navTo = u; });
+  _setRedirectDelayForTest(0); // redirect synchronously in tests (no toast delay)
 });
 
 afterEach(() => {
