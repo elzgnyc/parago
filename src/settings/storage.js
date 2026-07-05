@@ -7,6 +7,8 @@ export const DEFAULTS = {
   flagLowRating: true,
   flagFewRatings: true,
   flagNonPrime: false,  // opt-in: flag items not eligible for Prime
+  flagNoReviews: false, // opt-in: flag items with no rating/reviews at all (unvetted listings)
+  maxPrice: 0,          // flag items priced above this ($); 0 = off
   hoverReveal: true,
   guardianMode: 'off',  // 'off' | 'always' | 'over_limit'
   guardianLimit: 50,    // approval required above this total when over_limit

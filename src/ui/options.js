@@ -6,7 +6,7 @@ import { SupabaseRelay } from '../relay/supabaseRelay.js';
 
 // Inputs/selects driven by a generic change -> save listener.
 const fields = [
-  'lang', 'minStars', 'minRatings',
+  'lang', 'minStars', 'minRatings', 'maxPrice',
   'guardianLimit', 'guardianEmail', 'functionsBaseUrl', 'githubUsername', 'timezone',
 ];
 
@@ -29,7 +29,7 @@ function populateTimezones() {
   }
 }
 // Settings driven by segmented controls instead of inputs/selects.
-const boolSegs = ['hideSponsored', 'flagLowRating', 'flagFewRatings', 'flagNonPrime', 'hoverReveal', 'devMode'];
+const boolSegs = ['hideSponsored', 'flagLowRating', 'flagFewRatings', 'flagNoReviews', 'flagNonPrime', 'hoverReveal', 'devMode'];
 const segKeys = ['deliveryMethod', 'guardianMode', 'mode', ...boolSegs];
 
 const ICON_EMAIL = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>';
@@ -288,7 +288,7 @@ function markChanged() {
   const mark = (key, el) => {
     if (el) el.classList.toggle('is-changed', JSON.stringify(cur[key]) !== JSON.stringify(DEFAULTS[key]));
   };
-  for (const key of ['guardianLimit', 'minStars', 'minRatings', 'guardianEmail', 'functionsBaseUrl', 'githubUsername', 'lang']) {
+  for (const key of ['guardianLimit', 'minStars', 'minRatings', 'maxPrice', 'guardianEmail', 'functionsBaseUrl', 'githubUsername', 'lang']) {
     const ctrl = document.getElementById(key);
     const field = ctrl && ctrl.closest('.field, .lang-row');
     mark(key, field && field.querySelector('label, .field-label'));
@@ -321,6 +321,7 @@ function load(settings) {
   document.getElementById('timezone').value = settings.timezone || '';
   document.getElementById('minStars').value = settings.minStars;
   document.getElementById('minRatings').value = settings.minRatings;
+  document.getElementById('maxPrice').value = settings.maxPrice || '';
   document.getElementById('guardianLimit').value = settings.guardianLimit;
   document.getElementById('guardianEmail').value = settings.guardianEmail;
   document.getElementById('functionsBaseUrl').value = settings.functionsBaseUrl || '';
@@ -348,6 +349,7 @@ function readForm() {
     timezone: document.getElementById('timezone').value,
     minStars: toFinite(document.getElementById('minStars').value, DEFAULTS.minStars, 0, 5),
     minRatings: Math.round(toFinite(document.getElementById('minRatings').value, DEFAULTS.minRatings, 0, Infinity)),
+    maxPrice: Math.round(toFinite(document.getElementById('maxPrice').value, DEFAULTS.maxPrice, 0, Infinity)),
     guardianLimit: Math.round(toFinite(document.getElementById('guardianLimit').value, DEFAULTS.guardianLimit, 0, Infinity)),
     guardianEmail: document.getElementById('guardianEmail').value.trim(),
     functionsBaseUrl: document.getElementById('functionsBaseUrl').value.trim(),
@@ -378,6 +380,7 @@ async function save() {
   await setSettings(patch);
   document.getElementById('minStars').value = patch.minStars;
   document.getElementById('minRatings').value = patch.minRatings;
+  document.getElementById('maxPrice').value = patch.maxPrice || '';
   document.getElementById('guardianLimit').value = patch.guardianLimit;
   renderStars(patch.minStars);
   applyMethodVisibility(patch.deliveryMethod);
